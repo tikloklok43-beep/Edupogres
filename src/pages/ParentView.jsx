@@ -1,13 +1,14 @@
 import React from 'react';
 import { useParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { INITIAL_STUDENTS } from '../data/initialData';
 import ParentReport from './ParentReport';
 
 export default function ParentView() {
   const { studentId } = useParams();
   const { students } = useAuth();
 
-  const student = students?.find(s => s.id === studentId);
+  const student = students?.find(s => s.id === studentId) || INITIAL_STUDENTS.find(s => s.id === studentId);
 
   if (!student) {
     return (
