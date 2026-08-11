@@ -1,0 +1,461 @@
+import React, { useState, useEffect } from 'react';
+import { useAuth } from '../context/AuthContext';
+import { useSearchParams, useParams } from 'react-router-dom';
+import { FileSpreadsheet, Printer, Download, FileText, CheckCircle2, Share2, ChevronDown, Clock, Filter, CheckSquare, Square, BookOpen, Link as LinkIcon } from 'lucide-react';
+
+// API base URL
+const API_BASE = (typeof window !== 'undefined' && window.location.origin.startsWith('http') && window.location.port !== '5173')
+  ? window.location.origin
+  : (typeof import.meta !== 'undefined' && import.meta.env.VITE_API_URL) || 'http://localhost:5000';
+
+const statusStyles = {
+  'Sangat Paham': 'bg-emerald-100 text-emerald-700 border-emerald-200',
+  'Paham':        'bg-sky-100 text-sky-700 border-sky-200',
+  'Sedang Proses':'bg-yellow-100 text-yellow-700 border-yellow-200',
+  'Cukup Paham':  'bg-amber-100 text-amber-700 border-amber-200',
+  'Belum Paham':  'bg-rose-100 text-rose-700 border-rose-200',
+};
+
+const STATUS_OPTIONS = ['Sangat Paham', 'Paham', 'Sedang Proses', 'Cukup Paham', 'Belum Paham'];
+
+const renderStatusLabel = (status) => status === 'Sedang Proses' ? (
+  <span className="inline-flex items-center gap-1"><Clock className="w-3 h-3" /> Sedang Proses</span>
+) : status;
+
+// Build report data per subject, per chapter, per TP
+const buildDynamicReportData = (globalTpData) => {
+  if (!globalTpData || Object.keys(globalTpData).length === 0) return [];
+
+  return Object.entries(globalTpData).map(([key, subjObj]) => {
+    const chapters = (subjObj.chapters || []).map(chap => ({
+      title: chap.chapter,
+      tps: (chap.tps || []).map(tpText => ({
+        text: tpText,
+        status: 'Paham'
+      }))
+    }));
+
+    return {
+      subject: subjObj.subject || key,
+      teacher: subjObj.teacher || 'Ustadz Iski',
+      chapters
+    };
+  });
+};
+
+export default function Reports({ parentAccess = false }) {
+  const { selectedStudent, students, tpData: globalTpData } = useAuth();
+  const [searchParams] = useSearchParams();
+  const params = useParams();
+
+  const routeStudentId = params.studentId || searchParams.get('student');
+  const studentId = routeStudentId || selectedStudent?.id;
+  const targetStudent = students.find((item) => item.id === studentId) || selectedStudent;
+  const isParentView = parentAccess || searchParams.get('mode') === 'parent';
+
+  // Per-student TP status overrides
+  const [tpStatusByStudent, setTpStatusByStudent] = useState({});
+  const [openDropdown, setOpenDropdown] = useState(null);
+  const [showFilterPanel, setShowFilterPanel] = useState(false);
+  const [linkCopied, setLinkCopied] = useState(false);
+
+  const studentKey = targetStudent?.id;
+
+  // All chapters list for filter
+  const baseReportData = buildDynamicReportData(globalTpData);
+  const allChapters = baseReportData.flatMap(s => s.chapters.map(c => ({ subject: s.subject, chapter: c.title })));
+
+  const [selectedChapters, setSelectedChapters] = useState(() =>
+    allChapters.map(c => c.chapter)
+  );
+
+  // Re-sync selectedChapters when globalTpData changes
+  useEffect(() => {
+    const fresh = buildDynamicReportData(globalTpData).flatMap(s => s.chapters.map(c => c.title));
+    setSelectedChapters(prev => {
+      // Keep existing selections, add new chapters as checked
+      const existing = new Set(prev);
+      fresh.forEach(c => existing.add(c));
+      return [...existing];
+    });
+  }, [globalTpData]);
+
+  const buildTpData = (overrides) => {
+    const overrideMap = overrides || {};
+    return buildDynamicReportData(globalTpData).map(subj => ({
+      ...subj,
+      chapters: subj.chapters.map(chap => ({
+        ...chap,
+        tps: chap.tps.map(tp => ({
+          ...tp,
+          status: overrideMap[tp.text] || tp.status
+        }))
+      }))
+    }));
+  };
+
+  useEffect(() => {
+    if (!studentKey) return;
+    let cancelled = false;
+    let localOverrides = {};
+    try {
+      const localRaw = localStorage.getItem(`tpStatus_${studentKey}`);
+      localOverrides = localRaw ? JSON.parse(localRaw) : {};
+    } catch (e) { /* ignore */ }
+
+    fetch(`${API_BASE}/api/tp-report-status/${studentKey}`)
+      .then(res => res.json())
+      .then(json => {
+        if (cancelled) return;
+        const serverOverrides = (json && json.data) || {};
+        const merged = { ...localOverrides, ...serverOverrides };
+        setTpStatusByStudent(prev => ({
+          ...prev,
+          [studentKey]: { data: buildTpData(merged), overrides: merged }
+        }));
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setTpStatusByStudent(prev => ({
+            ...prev,
+            [studentKey]: { data: buildTpData(localOverrides), overrides: localOverrides }
+          }));
+        }
+      });
+    return () => { cancelled = true; };
+  }, [studentKey, globalTpData]);
+
+  const rawTpData = (tpStatusByStudent[studentKey] || {}).data || buildDynamicReportData(globalTpData);
+
+  // Filter only selected chapters
+  const tpData = rawTpData.map(subj => ({
+    ...subj,
+    chapters: (subj.chapters || []).filter(chap => selectedChapters.includes(chap.title))
+  })).filter(subj => subj.chapters.length > 0);
+
+  const handleToggleChapter = (chapTitle) => {
+    setSelectedChapters(prev =>
+      prev.includes(chapTitle)
+        ? prev.filter(c => c !== chapTitle)
+        : [...prev, chapTitle]
+    );
+  };
+
+  const handleStatusChange = (tpText, newStatus) => {
+    if (!targetStudent) return;
+    const key = targetStudent.id;
+    const currentOverrides = (tpStatusByStudent[key] || {}).overrides || {};
+    const newOverrides = { ...currentOverrides, [tpText]: newStatus };
+
+    setTpStatusByStudent(prev => ({
+      ...prev,
+      [key]: { data: buildTpData(newOverrides), overrides: newOverrides }
+    }));
+    setOpenDropdown(null);
+
+    try { localStorage.setItem(`tpStatus_${key}`, JSON.stringify(newOverrides)); } catch (e) { }
+    fetch(`${API_BASE}/api/tp-report-status/${key}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tpText, status: newStatus })
+    }).catch(() => { });
+  };
+
+  // Share link to parent — menggunakan route /ortu/:studentId
+  const parentLink = `${window.location.origin}/ortu/${targetStudent?.id}`;
+
+  const handleCopyLink = () => {
+    navigator.clipboard.writeText(parentLink).then(() => {
+      setLinkCopied(true);
+      setTimeout(() => setLinkCopied(false), 2500);
+    });
+  };
+
+  const handleShareToParent = () => {
+    if (!targetStudent) return;
+
+    // Build summary from selected chapters only
+    const summaryLines = tpData.map(s => {
+      const chapLines = s.chapters.map(chap => {
+        const tpLines = chap.tps.map(t => `    - ${t.text} (${t.status})`).join('\n');
+        return `  📖 *${chap.title}*\n${tpLines}`;
+      }).join('\n');
+      return `📌 *${s.subject}* (${s.teacher}):\n${chapLines}`;
+    }).join('\n\n');
+
+    const phone = targetStudent.parentPhone || '6281234567891';
+    const message = `Assalamu'alaikum Wr. Wb.\nYth. Bapak/Ibu ${targetStudent.parentName},\n\nBerikut laporan Capaian Tujuan Pembelajaran (TP) ananda *${targetStudent.name}* (${targetStudent.className}) untuk Bab yang sudah dipelajari:\n\n${summaryLines}\n\n📱 *Lihat Laporan Lengkap secara Online:*\n👉 ${parentLink}\n\n_(Klik link di atas untuk melihat laporan perkembangan ananda secara visual & lengkap, langsung dari HP Bapak/Ibu)_\n\nWassalamu'alaikum Wr. Wb.\n-- ${targetStudent.homeroomTeacher || 'Wali Kelas'}`;
+
+    window.open(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`, '_blank');
+  };
+
+  if (!targetStudent) return null;
+
+  return (
+    <div className={isParentView ? 'min-h-screen bg-slate-50 dark:bg-slate-950 p-4 sm:p-6 lg:p-8' : 'space-y-6 pb-12'}>
+
+      {/* TOP HEADER (Teacher View Only) */}
+      {!isParentView && (
+        <div className="no-print bg-gradient-to-r from-emerald-500 via-teal-500 to-sky-500 p-6 rounded-4xl text-white shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="space-y-1">
+            <div className="inline-flex items-center gap-2 bg-white/20 backdrop-blur-md px-3 py-1 rounded-full text-xs font-black">
+              <FileSpreadsheet className="w-3.5 h-3.5" /> Laporan TP Anak — Mode Guru
+            </div>
+            <h1 className="text-2xl sm:text-3xl font-black tracking-tight">Tujuan Pembelajaran per Bab</h1>
+            <p className="text-xs sm:text-sm text-emerald-100">
+              Pilih Bab yang sudah dipelajari → Kirim laporan ke orang tua via WhatsApp beserta link halaman laporan.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={() => setShowFilterPanel(!showFilterPanel)}
+              className={`px-4 py-2.5 font-extrabold text-xs rounded-2xl shadow transition flex items-center gap-2 border ${
+                showFilterPanel
+                  ? 'bg-amber-400 text-slate-900 border-amber-300'
+                  : 'bg-white/20 hover:bg-white/30 text-white border-white/30'
+              }`}
+            >
+              <Filter className="w-4 h-4" /> Filter Bab ({selectedChapters.length})
+            </button>
+            <button
+              onClick={handleCopyLink}
+              className={`px-4 py-2.5 font-extrabold text-xs rounded-2xl shadow transition flex items-center gap-2 border ${
+                linkCopied ? 'bg-emerald-400 text-white border-emerald-300' : 'bg-white/20 hover:bg-white/30 text-white border-white/30'
+              }`}
+            >
+              <LinkIcon className="w-4 h-4" /> {linkCopied ? 'Link Disalin! ✓' : 'Salin Link Ortu'}
+            </button>
+            <button
+              onClick={handleShareToParent}
+              className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs rounded-2xl shadow transition flex items-center gap-2 border border-emerald-400"
+            >
+              <Share2 className="w-4 h-4" /> Kirim WA + Link ke Ortu
+            </button>
+            <button onClick={() => window.print()} className="px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-extrabold text-xs rounded-2xl shadow transition flex items-center gap-2">
+              <Printer className="w-4 h-4" /> Cetak
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* LINK PREVIEW (Teacher View Only) */}
+      {!isParentView && (
+        <div className="no-print p-3.5 bg-sky-50 dark:bg-sky-950/40 rounded-2xl border border-sky-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <LinkIcon className="w-4 h-4 text-sky-600 shrink-0" />
+            <div>
+              <p className="text-xs font-black text-sky-800 dark:text-sky-300">🔗 Link Laporan untuk Orang Tua (Tanpa Login)</p>
+              <p className="text-[11px] text-sky-600 dark:text-sky-400 font-mono break-all">{parentLink}</p>
+            </div>
+          </div>
+          <button
+            onClick={handleCopyLink}
+            className={`px-4 py-1.5 font-extrabold text-[11px] rounded-xl shrink-0 transition ${
+              linkCopied ? 'bg-emerald-500 text-white' : 'bg-sky-500 text-white hover:bg-sky-600'
+            }`}
+          >
+            {linkCopied ? '✓ Tersalin!' : 'Salin Link'}
+          </button>
+        </div>
+      )}
+
+      {/* FILTER PANEL: Pilih Bab yang Sudah Dipelajari */}
+      {!isParentView && showFilterPanel && (
+        <div className="no-print p-5 bg-amber-50 dark:bg-amber-950/40 rounded-3xl border-2 border-amber-300 space-y-4 shadow-lg animate-in fade-in">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-amber-200 pb-3">
+            <div>
+              <h3 className="font-black text-sm text-amber-900 dark:text-amber-200 flex items-center gap-2">
+                <Filter className="w-4 h-4" /> Pilih Bab Yang Sudah Dipelajari
+              </h3>
+              <p className="text-xs text-amber-700 dark:text-amber-400 mt-0.5">
+                ✅ Centang = sudah dipelajari (akan tampil di laporan & dikirim ke ortu). ⬜ Kosong = belum dipelajari (tidak dikirim).
+              </p>
+            </div>
+            <div className="flex gap-2 shrink-0">
+              <button
+                onClick={() => setSelectedChapters(allChapters.map(c => c.chapter))}
+                className="px-3 py-1.5 bg-amber-200 text-amber-900 font-extrabold text-[11px] rounded-xl hover:bg-amber-300 transition"
+              >
+                Pilih Semua
+              </button>
+              <button
+                onClick={() => setSelectedChapters([])}
+                className="px-3 py-1.5 bg-slate-200 text-slate-700 font-extrabold text-[11px] rounded-xl hover:bg-slate-300 transition"
+              >
+                Hapus Semua
+              </button>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            {buildDynamicReportData(globalTpData).map((subj) => (
+              <div key={subj.subject} className="p-3 bg-white dark:bg-slate-900 rounded-2xl border border-amber-200 space-y-2">
+                <p className="text-xs font-black text-slate-800 dark:text-slate-100">{subj.subject}</p>
+                {subj.chapters.length === 0 ? (
+                  <p className="text-[11px] text-slate-400 italic">Belum ada Bab ditambahkan.</p>
+                ) : subj.chapters.map((chap) => {
+                  const isChecked = selectedChapters.includes(chap.title);
+                  return (
+                    <button
+                      key={chap.title}
+                      onClick={() => handleToggleChapter(chap.title)}
+                      className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-xl text-xs font-bold text-left transition ${
+                        isChecked
+                          ? 'bg-emerald-50 text-emerald-800 border border-emerald-300'
+                          : 'bg-slate-50 text-slate-400 hover:bg-amber-100/50 border border-slate-200'
+                      }`}
+                    >
+                      {isChecked
+                        ? <CheckSquare className="w-4 h-4 text-emerald-600 shrink-0" />
+                        : <Square className="w-4 h-4 text-slate-300 shrink-0" />
+                      }
+                      <span className="truncate">{chap.title}</span>
+                      <span className="ml-auto shrink-0 text-[10px] text-slate-400">{chap.tps.length} TP</span>
+                    </button>
+                  );
+                })}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* MAIN REPORT CONTAINER */}
+      <div className="print-container bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 sm:p-8 shadow-xl space-y-6">
+
+        {/* Report Header */}
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 border-b border-slate-200 dark:border-slate-700 pb-6">
+          <div className="space-y-1">
+            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Laporan Tujuan Pembelajaran</p>
+            <h2 className="text-2xl font-black text-slate-900 dark:text-slate-100">{targetStudent.name}</h2>
+            <p className="text-xs text-slate-500 dark:text-slate-300">{targetStudent.className} • NISN {targetStudent.nisn}</p>
+            <p className="text-xs text-slate-400 dark:text-slate-400">Wali Kelas: <span className="font-bold text-slate-600 dark:text-slate-300">{targetStudent.homeroomTeacher}</span></p>
+          </div>
+          <div className="flex flex-col gap-2 items-start sm:items-end">
+            <div className="flex items-center gap-2 rounded-2xl bg-emerald-50 border border-emerald-200 px-3 py-2 text-xs font-extrabold text-emerald-700">
+              <CheckCircle2 className="w-4 h-4" />
+              {isParentView ? 'Laporan untuk Orang Tua' : `${selectedChapters.length} Bab Terpilih`}
+            </div>
+            {!isParentView && (
+              <p className="text-[10px] text-slate-400 font-bold">
+                Kurikulum Merdeka TA 2026/2027
+              </p>
+            )}
+          </div>
+        </div>
+
+        {/* Edit mode info (Teacher only) */}
+        {!isParentView && (
+          <div className="no-print rounded-2xl border border-amber-200 bg-amber-50 dark:bg-amber-950/40 p-3 text-xs text-amber-800 dark:text-amber-300 font-bold flex flex-wrap items-center justify-between gap-2">
+            <span>✏️ Klik badge status pada setiap TP untuk mengubahnya. Klik <strong>"Filter Bab"</strong> untuk memilih Bab yang sudah dipelajari sebelum kirim ke orang tua.</span>
+            <button onClick={() => setShowFilterPanel(true)} className="px-3 py-1 bg-amber-500 text-white rounded-xl text-xs font-extrabold shrink-0">
+              Buka Filter
+            </button>
+          </div>
+        )}
+
+        {/* Subjects + Bab + TP List */}
+        <div className="space-y-6">
+          {tpData.length === 0 ? (
+            <div className="p-10 text-center text-xs text-slate-400 font-bold border-2 border-dashed rounded-3xl space-y-2">
+              <p className="text-2xl">📋</p>
+              <p>Belum ada Bab yang dipilih atau data TP belum diinput.</p>
+              {!isParentView && (
+                <button onClick={() => setShowFilterPanel(true)} className="px-4 py-2 bg-emerald-500 text-white rounded-xl font-extrabold text-xs">
+                  Buka Filter Bab
+                </button>
+              )}
+            </div>
+          ) : tpData.map((subj) => (
+            <div key={subj.subject} className="space-y-3">
+              {/* Subject Header */}
+              <div className="flex items-center gap-2 border-b-2 border-slate-200 dark:border-slate-700 pb-2">
+                <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center shrink-0">
+                  <span className="text-white font-black text-xs">📚</span>
+                </div>
+                <div>
+                  <h3 className="font-black text-base text-slate-900 dark:text-slate-100">{subj.subject}</h3>
+                  <p className="text-[10px] text-slate-500 font-bold">Pengampu: {subj.teacher}</p>
+                </div>
+              </div>
+
+              {/* Chapters */}
+              {subj.chapters.map((chap, chapIdx) => (
+                <div key={chapIdx} className="pl-3 sm:pl-6 border-l-4 border-emerald-300 dark:border-emerald-700 space-y-2">
+
+                  {/* Chapter Title — Prominently displayed */}
+                  <div className="flex items-center gap-2 py-1">
+                    <BookOpen className="w-4 h-4 text-sky-500 shrink-0" />
+                    <h4 className="font-black text-sm text-slate-800 dark:text-slate-100">{chap.title}</h4>
+                  </div>
+
+                  {/* TPs in this chapter */}
+                  <div className="space-y-1.5 pl-6">
+                    {chap.tps.length === 0 ? (
+                      <p className="text-xs text-slate-400 italic">Belum ada TP di bab ini.</p>
+                    ) : chap.tps.map((tp, tpIdx) => {
+                      const isOpen = openDropdown === `${chap.title}__${tp.text}`;
+                      return (
+                        <div key={tpIdx} className="flex items-start gap-2 p-2.5 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-700">
+                          <span className="mt-1 h-2 w-2 rounded-full bg-emerald-400 flex-shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs text-slate-700 dark:text-slate-200 leading-relaxed">{tp.text}</p>
+
+                            {/* Status Badge */}
+                            <span className="relative inline-block mt-1">
+                              <button
+                                onClick={() => isParentView ? null : setOpenDropdown(isOpen ? null : `${chap.title}__${tp.text}`)}
+                                className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-black ${statusStyles[tp.status]} ${
+                                  isParentView ? 'cursor-default' : 'cursor-pointer hover:scale-105 hover:shadow-sm transition'
+                                }`}
+                              >
+                                {renderStatusLabel(tp.status)}
+                                {!isParentView && <ChevronDown className="w-3 h-3" />}
+                              </button>
+
+                              {/* Status Dropdown */}
+                              {isOpen && !isParentView && (
+                                <div className="absolute left-0 top-full mt-1 z-20 w-44 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-xl p-1.5">
+                                  {STATUS_OPTIONS.map(opt => (
+                                    <button
+                                      key={opt}
+                                      onClick={() => handleStatusChange(tp.text, opt)}
+                                      className={`w-full flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-xl text-[10px] font-black text-left cursor-pointer transition ${
+                                        tp.status === opt ? 'bg-slate-100 dark:bg-slate-800' : 'hover:bg-slate-50 dark:hover:bg-slate-800'
+                                      }`}
+                                    >
+                                      <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 ${statusStyles[opt]}`}>{renderStatusLabel(opt)}</span>
+                                      {tp.status === opt && <span className="text-emerald-500">✓</span>}
+                                    </button>
+                                  ))}
+                                </div>
+                              )}
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
+
+        {/* Signature */}
+        <div className="pt-6 border-t border-slate-200 dark:border-slate-700 flex justify-between items-end text-xs">
+          <div className="space-y-1 text-slate-500">
+            <p className="font-bold">EduProgress — Sistem Monitoring Perkembangan Peserta Didik</p>
+            <p className="text-[10px]">Kurikulum Merdeka TA 2026/2027</p>
+          </div>
+          <div className="text-center space-y-10">
+            <p className="font-extrabold text-slate-700 dark:text-slate-300">Kelas 5 SDQ - Madani Al washiyyah</p>
+            <p className="font-black underline text-slate-900 dark:text-slate-100">{targetStudent.homeroomTeacher || 'Ustadz Iski'}</p>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  );
+}
