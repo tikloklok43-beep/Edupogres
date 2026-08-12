@@ -1,12 +1,24 @@
 import React from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { INITIAL_STUDENTS } from '../data/initialData';
 import ParentReport from './ParentReport';
 
 export default function ParentView() {
   const { studentId } = useParams();
+  const [searchParams] = useSearchParams();
   const { students } = useAuth();
+
+  let selectedChapters = null;
+  try {
+    const encodedChapters = searchParams.get('bab');
+    if (encodedChapters !== null) {
+      const parsedChapters = JSON.parse(encodedChapters);
+      if (Array.isArray(parsedChapters)) selectedChapters = parsedChapters;
+    }
+  } catch (e) {
+    // Keep legacy links usable when the optional filter is invalid.
+  }
 
   const student = students?.find(s => s.id === studentId) || INITIAL_STUDENTS.find(s => s.id === studentId);
 
@@ -22,5 +34,5 @@ export default function ParentView() {
     );
   }
 
-  return <ParentReport student={student} />;
+  return <ParentReport student={student} selectedChapters={selectedChapters} />;
 }

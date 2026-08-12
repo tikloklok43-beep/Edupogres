@@ -161,8 +161,12 @@ export default function Reports({ parentAccess = false }) {
     }).catch(() => { });
   };
 
-  // Share link to parent — menggunakan route /ortu/:studentId
-  const parentLink = `${window.location.origin}/ortu/${targetStudent?.id}`;
+  // Include the selected chapters in the public link so another device sees the same report.
+  const parentLink = (() => {
+    const url = new URL(`/ortu/${targetStudent?.id}`, window.location.origin);
+    url.searchParams.set('bab', JSON.stringify(selectedChapters));
+    return url.toString();
+  })();
 
   const handleCopyLink = () => {
     navigator.clipboard.writeText(parentLink).then(() => {

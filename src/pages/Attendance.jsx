@@ -12,32 +12,33 @@ import {
   Pie,
   Cell
 } from 'recharts';
-import { CalendarCheck, CheckCircle2, Clock, AlertTriangle, XCircle, PencilLine, X, Lock } from 'lucide-react';
+import { CalendarCheck, CheckCircle2, Clock, AlertTriangle, XCircle, PencilLine, X, Lock, ChevronLeft, ChevronRight } from 'lucide-react';
 
 // Helper: is this day a weekend (Sabtu & Ahad/Minggu)?
-// Uses Date to guarantee correct day-of-week for July 2026.
 // getDay(): 0=Sunday(Ahad), 6=Saturday(Sabtu)
-const isWeekend = (day) => {
-  const dow = new Date(2026, 6, day).getDay(); // month index 6 = July
+const isWeekend = (day, month, year) => {
+  const dow = new Date(year, month, day).getDay();
   return dow === 0 || dow === 6;
 };
 
-// Leading empty cells so day 1 lands under its correct weekday column.
-// July 1 2026 = Wednesday (Rabu). Grid columns: Sen(0),Sel(1),Rab(2),Kam(3),Jum(4),Sab(5),Min(6).
-// getDay() maps: 1=Sen,2=Sel,3=Rab,4=Kam,5=Jum,6=Sab,0=Min.
-const leadingBlanks = (() => {
-  const dow = new Date(2026, 6, 1).getDay(); // 3 for Wednesday
-  // Convert JS dow to grid index (Mon-start): Mon=0 ... Sun=6
-  return (dow + 6) % 7; // Wed(3) -> (3+6)%7 = 2
-})();
+const MONTH_NAMES = [
+  'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+  'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
+];
 
-// Initial calendar data for July 2026
-const buildInitialDays = () => Array.from({ length: 31 }, (_, i) => {
+const getLeadingBlanks = (month, year) => {
+  const dow = new Date(year, month, 1).getDay();
+  return (dow + 6) % 7;
+};
+
+const buildInitialDays = (month, year) => Array.from(
+  { length: new Date(year, month + 1, 0).getDate() },
+  (_, i) => {
   const day = i + 1;
   let status = 'Hadir';
-  if (isWeekend(day)) status = 'Libur';
-  else if (day === 12) status = 'Izin';
-  else if (day === 21) status = 'Sakit';
+  if (isWeekend(day, month, year)) status = 'Libur';
+  else if (year === 2026 && month === 6 && day === 12) status = 'Izin';
+  else if (year === 2026 && month === 6 && day === 21) status = 'Sakit';
   return { day, status };
 });
 
@@ -50,8 +51,20 @@ const STATUS_META = {
 };
 
 export default function Attendance() {
-  const [days, setDays] = useState(buildInitialDays());
+  const [month, setMonth] = useState(6); // Juli sebagai bulan awal
+  const [year, setYear] = useState(2026);
+  const [days, setDays] = useState(() => buildInitialDays(6, 2026));
   const [openPicker, setOpenPicker] = useState(null); // day number whose picker is open
+
+  const leadingBlanks = getLeadingBlanks(month, year);
+
+  const changeMonth = (direction) => {
+    const nextDate = new Date(year, month + direction, 1);
+    setMonth(nextDate.getMonth());
+    setYear(nextDate.getFullYear());
+    setDays(buildInitialDays(nextDate.getMonth(), nextDate.getFullYear()));
+    setOpenPicker(null);
+  };
 
   // Recount stats from editable state
   const counts = days.reduce((acc, d) => {
@@ -71,10 +84,10 @@ export default function Attendance() {
     setOpenPicker(null);
   };
 
-// Available options for a given day.
+  // Available options for a given day.
   // Sabtu & Ahad (weekend) are always Libur and NOT editable.
   const statusOptions = (day) => {
-    if (isWeekend(day)) return ['Libur'];
+    if (isWeekend(day, month, year)) return ['Libur'];
     return ['Hadir', 'Izin', 'Sakit', 'Alpha'];
   };
 
@@ -156,9 +169,29 @@ export default function Attendance() {
         {/* Left: Monthly Calendar */}
         <GlassCard className="lg:col-span-2 space-y-4">
           <div className="flex items-center justify-between flex-wrap gap-2">
-            <h3 className="text-base font-extrabold text-slate-800 dark:text-slate-100">
-              Kalender Kehadiran - Juli 2026
-            </h3>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => changeMonth(-1)}
+                className="p-2 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+                title="Bulan sebelumnya"
+                aria-label="Bulan sebelumnya"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <h3 className="text-base font-extrabold text-slate-800 dark:text-slate-100 min-w-36 text-center">
+                Kalender Kehadiran - {MONTH_NAMES[month]} {year}
+              </h3>
+              <button
+                type="button"
+                onClick={() => changeMonth(1)}
+                className="p-2 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+                title="Bulan berikutnya"
+                aria-label="Bulan berikutnya"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
             <div className="flex items-center gap-3 text-xs font-extrabold flex-wrap">
               <span className="flex items-center gap-1 text-emerald-600"><span className="w-2.5 h-2.5 rounded-full bg-emerald-500"></span> Hadir</span>
               <span className="flex items-center gap-1 text-blue-600"><span className="w-2.5 h-2.5 rounded-full bg-blue-500"></span> Izin</span>
@@ -178,7 +211,7 @@ export default function Attendance() {
 {days.map(item => {
               const meta = STATUS_META[item.status] || STATUS_META.Hadir;
               const isOpen = openPicker === item.day;
-              const editable = !isWeekend(item.day);
+              const editable = !isWeekend(item.day, month, year);
               return (
                 <div key={item.day} className="relative">
                   <button
@@ -198,7 +231,7 @@ export default function Attendance() {
                       <div className="fixed inset-0 z-30" onClick={() => setOpenPicker(null)} />
                       <div className="absolute left-0 top-full mt-1 z-40 w-40 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-xl p-1.5">
                         <div className="px-2 py-1 text-[10px] font-black text-slate-500 border-b border-slate-100 dark:border-slate-800 mb-1">
-                          Tanggal {item.day} Juli
+                          Tanggal {item.day} {MONTH_NAMES[month]}
                         </div>
                         {statusOptions(item.day).map(opt => {
                           const om = STATUS_META[opt];
