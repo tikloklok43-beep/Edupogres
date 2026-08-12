@@ -27,14 +27,19 @@ export default function ParentReport({ student, selectedChapters = null }) {
   const { tpData: globalTpData } = useAuth();
 
   const [tpStatusOverrides, setTpStatusOverrides] = useState({});
+  const [tpNoteOverrides, setTpNoteOverrides] = useState({});
   const [expandedSubjects, setExpandedSubjects] = useState({});
 
-  // Load saved statuses from localStorage
+  // Load saved statuses and teacher notes from localStorage
   useEffect(() => {
     if (!student?.id) return;
     try {
       const raw = localStorage.getItem(`tpStatus_${student.id}`);
       if (raw) setTpStatusOverrides(JSON.parse(raw));
+    } catch (e) { /* ignore */ }
+    try {
+      const rawNotes = localStorage.getItem(`tpNotes_${student.id}`);
+      if (rawNotes) setTpNoteOverrides(JSON.parse(rawNotes));
     } catch (e) { /* ignore */ }
   }, [student?.id]);
 
@@ -48,7 +53,8 @@ export default function ParentReport({ student, selectedChapters = null }) {
           title: chap.chapter,
           tps: (chap.tps || []).map(tpText => ({
             text: tpText,
-            status: tpStatusOverrides[tpText] || 'Paham'
+            status: tpStatusOverrides[tpText] || 'Paham',
+            note: tpNoteOverrides[tpText] || ''
           }))
         }));
 
@@ -184,17 +190,29 @@ export default function ParentReport({ student, selectedChapters = null }) {
                         ) : chap.tps.map((tp, tpIdx) => (
                           <div
                             key={tpIdx}
-                            className="flex items-start gap-2.5 p-2.5 bg-slate-50 rounded-2xl border border-slate-100"
+                            className="flex flex-col gap-2.5 p-2.5 bg-slate-50 rounded-2xl border border-slate-100"
                           >
-                            <span className="text-base shrink-0 mt-0.5">{statusIcon[tp.status] || '•'}</span>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-xs text-slate-700 leading-relaxed font-medium">{tp.text}</p>
-                              <span className={`mt-1 inline-flex items-center gap-0.5 rounded-full border px-2 py-0.5 text-[10px] font-black ${statusStyles[tp.status] || statusStyles['Paham']}`}>
-                                {tp.status === 'Sedang Proses' ? (
-                                  <><Clock className="w-2.5 h-2.5" /> Sedang Proses</>
-                                ) : tp.status}
-                              </span>
+                            <div className="flex items-start gap-2.5">
+                              <span className="text-base shrink-0 mt-0.5">{statusIcon[tp.status] || '•'}</span>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-xs text-slate-700 leading-relaxed font-medium">{tp.text}</p>
+                                <span className={`mt-1 inline-flex items-center gap-0.5 rounded-full border px-2 py-0.5 text-[10px] font-black ${statusStyles[tp.status] || statusStyles['Paham']}`}>
+                                  {tp.status === 'Sedang Proses' ? (
+                                    <><Clock className="w-2.5 h-2.5" /> Sedang Proses</>
+                                  ) : tp.status}
+                                </span>
+                              </div>
                             </div>
+                            {(tp.status === 'Paham' || tp.status === 'Cukup Paham' || tp.status === 'Belum Paham') && (
+                              <div className="rounded-2xl border border-amber-200 bg-amber-50 p-3 text-slate-800">
+                                <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-amber-700">Catatan Guru</p>
+                                {tp.note ? (
+                                  <p className="mt-2 text-[11px] italic leading-relaxed">"{tp.note}"</p>
+                                ) : (
+                                  <p className="mt-2 text-[11px] text-slate-500 italic">Belum ada catatan guru untuk status ini.</p>
+                                )}
+                              </div>
+                            )}
                           </div>
                         ))}
                       </div>

@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import GlassCard from '../components/GlassCard';
+import { useAuth } from '../context/AuthContext';
 import {
   BarChart,
   Bar,
@@ -50,19 +51,69 @@ const STATUS_META = {
   Libur: { color: '#94A3B8', bg: 'bg-slate-100 text-slate-400 dark:bg-slate-800 border-slate-200', icon: Lock }
 };
 
+const ATTENDANCE_STORAGE_KEY = 'eduprogress_attendance_by_student';
+
+const loadAttendanceStorage = () => {
+  try {
+    const raw = localStorage.getItem(ATTENDANCE_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch (e) {
+    return {};
+  }
+};
+
+const saveAttendanceStorage = (data) => {
+  try {
+    localStorage.setItem(ATTENDANCE_STORAGE_KEY, JSON.stringify(data));
+  } catch (e) {
+    // Ignore storage failures.
+  }
+};
+
+const getStudentMonthDays = (studentId, month, year) => {
+  if (!studentId) return buildInitialDays(month, year);
+  const storage = loadAttendanceStorage();
+  const monthKey = `${year}-${month}`;
+  return (storage[studentId] || {})[monthKey] || buildInitialDays(month, year);
+};
+
 export default function Attendance() {
+  const { selectedStudent } = useAuth();
+  const studentId = selectedStudent?.id || 'default';
+
   const [month, setMonth] = useState(6); // Juli sebagai bulan awal
   const [year, setYear] = useState(2026);
-  const [days, setDays] = useState(() => buildInitialDays(6, 2026));
+  const [attendanceByStudent, setAttendanceByStudent] = useState(() => loadAttendanceStorage());
+  const [days, setDays] = useState(() => getStudentMonthDays(studentId, 6, 2026));
   const [openPicker, setOpenPicker] = useState(null); // day number whose picker is open
 
+  useEffect(() => {
+    const nextDays = getStudentMonthDays(studentId, month, year);
+    setDays(nextDays);
+    setOpenPicker(null);
+  }, [studentId, month, year]);
+
   const leadingBlanks = getLeadingBlanks(month, year);
+
+  const persistStudentMonthDays = (newDays) => {
+    const monthKey = `${year}-${month}`;
+    setAttendanceByStudent((prev) => {
+      const next = {
+        ...prev,
+        [studentId]: {
+          ...(prev[studentId] || {}),
+          [monthKey]: newDays
+        }
+      };
+      saveAttendanceStorage(next);
+      return next;
+    });
+  };
 
   const changeMonth = (direction) => {
     const nextDate = new Date(year, month + direction, 1);
     setMonth(nextDate.getMonth());
     setYear(nextDate.getFullYear());
-    setDays(buildInitialDays(nextDate.getMonth(), nextDate.getFullYear()));
     setOpenPicker(null);
   };
 
@@ -80,7 +131,11 @@ export default function Attendance() {
   ];
 
   const changeStatus = (day, newStatus) => {
-    setDays(prev => prev.map(d => d.day === day ? { ...d, status: newStatus } : d));
+    setDays((prev) => {
+      const next = prev.map((d) => (d.day === day ? { ...d, status: newStatus } : d));
+      persistStudentMonthDays(next);
+      return next;
+    });
     setOpenPicker(null);
   };
 

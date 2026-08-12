@@ -22,6 +22,8 @@ const renderStatusLabel = (status) => status === 'Sedang Proses' ? (
   <span className="inline-flex items-center gap-1"><Clock className="w-3 h-3" /> Sedang Proses</span>
 ) : status;
 
+const shouldShowTeacherNote = (status) => status === 'Paham' || status === 'Cukup Paham' || status === 'Belum Paham';
+
 // Build report data per subject, per chapter, per TP
 const buildDynamicReportData = (globalTpData) => {
   if (!globalTpData || Object.keys(globalTpData).length === 0) return [];
@@ -53,8 +55,9 @@ export default function Reports({ parentAccess = false }) {
   const targetStudent = students.find((item) => item.id === studentId) || selectedStudent;
   const isParentView = parentAccess || searchParams.get('mode') === 'parent';
 
-  // Per-student TP status overrides
+  // Per-student TP status and notes overrides
   const [tpStatusByStudent, setTpStatusByStudent] = useState({});
+  const [tpNotesByStudent, setTpNotesByStudent] = useState({});
   const [openDropdown, setOpenDropdown] = useState(null);
   const [showFilterPanel, setShowFilterPanel] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
@@ -80,15 +83,17 @@ export default function Reports({ parentAccess = false }) {
     });
   }, [globalTpData]);
 
-  const buildTpData = (overrides) => {
+  const buildTpData = (overrides, notes) => {
     const overrideMap = overrides || {};
+    const noteMap = notes || {};
     return buildDynamicReportData(globalTpData).map(subj => ({
       ...subj,
       chapters: subj.chapters.map(chap => ({
         ...chap,
         tps: chap.tps.map(tp => ({
           ...tp,
-          status: overrideMap[tp.text] || tp.status
+          status: overrideMap[tp.text] || tp.status,
+          note: noteMap[tp.text] || ''
         }))
       }))
     }));
@@ -98,9 +103,12 @@ export default function Reports({ parentAccess = false }) {
     if (!studentKey) return;
     let cancelled = false;
     let localOverrides = {};
+    let localNotes = {};
     try {
-      const localRaw = localStorage.getItem(`tpStatus_${studentKey}`);
-      localOverrides = localRaw ? JSON.parse(localRaw) : {};
+      const statusRaw = localStorage.getItem(`tpStatus_${studentKey}`);
+      localOverrides = statusRaw ? JSON.parse(statusRaw) : {};
+      const notesRaw = localStorage.getItem(`tpNotes_${studentKey}`);
+      localNotes = notesRaw ? JSON.parse(notesRaw) : {};
     } catch (e) { /* ignore */ }
 
     fetch(`${API_BASE}/api/tp-report-status/${studentKey}`)
@@ -111,21 +119,24 @@ export default function Reports({ parentAccess = false }) {
         const merged = { ...localOverrides, ...serverOverrides };
         setTpStatusByStudent(prev => ({
           ...prev,
-          [studentKey]: { data: buildTpData(merged), overrides: merged }
+          [studentKey]: { data: buildTpData(merged, localNotes), overrides: merged }
         }));
+        setTpNotesByStudent(prev => ({ ...prev, [studentKey]: localNotes }));
       })
       .catch(() => {
         if (!cancelled) {
           setTpStatusByStudent(prev => ({
             ...prev,
-            [studentKey]: { data: buildTpData(localOverrides), overrides: localOverrides }
+            [studentKey]: { data: buildTpData(localOverrides, localNotes), overrides: localOverrides }
           }));
+          setTpNotesByStudent(prev => ({ ...prev, [studentKey]: localNotes }));
         }
       });
     return () => { cancelled = true; };
   }, [studentKey, globalTpData]);
 
   const rawTpData = (tpStatusByStudent[studentKey] || {}).data || buildDynamicReportData(globalTpData);
+  const rawNotes = (tpNotesByStudent[studentKey] || {});
 
   // Filter only selected chapters
   const tpData = rawTpData.map(subj => ({
@@ -145,11 +156,12 @@ export default function Reports({ parentAccess = false }) {
     if (!targetStudent) return;
     const key = targetStudent.id;
     const currentOverrides = (tpStatusByStudent[key] || {}).overrides || {};
+    const currentNotes = (tpNotesByStudent[key] || {});
     const newOverrides = { ...currentOverrides, [tpText]: newStatus };
 
     setTpStatusByStudent(prev => ({
       ...prev,
-      [key]: { data: buildTpData(newOverrides), overrides: newOverrides }
+      [key]: { data: buildTpData(newOverrides, currentNotes), overrides: newOverrides }
     }));
     setOpenDropdown(null);
 
@@ -159,6 +171,25 @@ export default function Reports({ parentAccess = false }) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ tpText, status: newStatus })
     }).catch(() => { });
+  };
+
+  const handleNoteChange = (tpText, noteValue) => {
+    if (!targetStudent) return;
+    const key = targetStudent.id;
+    const currentOverrides = (tpStatusByStudent[key] || {}).overrides || {};
+    const currentNotes = (tpNotesByStudent[key] || {});
+    const newNotes = { ...currentNotes, [tpText]: noteValue };
+
+    setTpNotesByStudent(prev => ({
+      ...prev,
+      [key]: newNotes
+    }));
+    setTpStatusByStudent(prev => ({
+      ...prev,
+      [key]: { data: buildTpData(currentOverrides, newNotes), overrides: currentOverrides }
+    }));
+
+    try { localStorage.setItem(`tpNotes_${key}`, JSON.stringify(newNotes)); } catch (e) { }
   };
 
   // Include the selected chapters in the public link so another device sees the same report.
@@ -401,42 +432,59 @@ export default function Reports({ parentAccess = false }) {
                     ) : chap.tps.map((tp, tpIdx) => {
                       const isOpen = openDropdown === `${chap.title}__${tp.text}`;
                       return (
-                        <div key={tpIdx} className="flex items-start gap-2 p-2.5 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-700">
-                          <span className="mt-1 h-2 w-2 rounded-full bg-emerald-400 flex-shrink-0" />
-                          <div className="flex-1 min-w-0">
-                            <p className="text-xs text-slate-700 dark:text-slate-200 leading-relaxed">{tp.text}</p>
+                        <div key={tpIdx} className="flex flex-col gap-3 p-2.5 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-700">
+                          <div className="flex items-start gap-2">
+                            <span className="mt-1 h-2 w-2 rounded-full bg-emerald-400 flex-shrink-0" />
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs text-slate-700 dark:text-slate-200 leading-relaxed">{tp.text}</p>
 
-                            {/* Status Badge */}
-                            <span className="relative inline-block mt-1">
-                              <button
-                                onClick={() => isParentView ? null : setOpenDropdown(isOpen ? null : `${chap.title}__${tp.text}`)}
-                                className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-black ${statusStyles[tp.status]} ${
-                                  isParentView ? 'cursor-default' : 'cursor-pointer hover:scale-105 hover:shadow-sm transition'
-                                }`}
-                              >
-                                {renderStatusLabel(tp.status)}
-                                {!isParentView && <ChevronDown className="w-3 h-3" />}
-                              </button>
+                              {/* Status Badge */}
+                              <span className="relative inline-block mt-1">
+                                <button
+                                  onClick={() => isParentView ? null : setOpenDropdown(isOpen ? null : `${chap.title}__${tp.text}`)}
+                                  className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-black ${statusStyles[tp.status]} ${
+                                    isParentView ? 'cursor-default' : 'cursor-pointer hover:scale-105 hover:shadow-sm transition'
+                                  }`}
+                                >
+                                  {renderStatusLabel(tp.status)}
+                                  {!isParentView && <ChevronDown className="w-3 h-3" />}
+                                </button>
 
-                              {/* Status Dropdown */}
-                              {isOpen && !isParentView && (
-                                <div className="absolute left-0 top-full mt-1 z-20 w-44 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-xl p-1.5">
-                                  {STATUS_OPTIONS.map(opt => (
-                                    <button
-                                      key={opt}
-                                      onClick={() => handleStatusChange(tp.text, opt)}
-                                      className={`w-full flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-xl text-[10px] font-black text-left cursor-pointer transition ${
-                                        tp.status === opt ? 'bg-slate-100 dark:bg-slate-800' : 'hover:bg-slate-50 dark:hover:bg-slate-800'
-                                      }`}
-                                    >
-                                      <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 ${statusStyles[opt]}`}>{renderStatusLabel(opt)}</span>
-                                      {tp.status === opt && <span className="text-emerald-500">✓</span>}
-                                    </button>
-                                  ))}
-                                </div>
-                              )}
-                            </span>
+                                {/* Status Dropdown */}
+                                {isOpen && !isParentView && (
+                                  <div className="absolute left-0 top-full mt-1 z-20 w-44 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-xl p-1.5">
+                                    {STATUS_OPTIONS.map(opt => (
+                                      <button
+                                        key={opt}
+                                        onClick={() => handleStatusChange(tp.text, opt)}
+                                        className={`w-full flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-xl text-[10px] font-black text-left cursor-pointer transition ${
+                                          tp.status === opt ? 'bg-slate-100 dark:bg-slate-800' : 'hover:bg-slate-50 dark:hover:bg-slate-800'
+                                        }`}
+                                      >
+                                        <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 ${statusStyles[opt]}`}>{renderStatusLabel(opt)}</span>
+                                        {tp.status === opt && <span className="text-emerald-500">✓</span>}
+                                      </button>
+                                    ))}
+                                  </div>
+                                )}
+                              </span>
+                            </div>
                           </div>
+
+                          {shouldShowTeacherNote(tp.status) && (
+                            <div className="rounded-2xl border border-amber-200 bg-amber-50 dark:bg-amber-950/30 p-3 text-slate-700 dark:text-amber-100">
+                              <div className="flex items-center justify-between gap-2 mb-2">
+                                <span className="text-[10px] font-black uppercase tracking-[0.25em] text-amber-700">Catatan Guru</span>
+                              </div>
+                              <textarea
+                                value={tp.note || ''}
+                                onChange={(e) => handleNoteChange(tp.text, e.target.value)}
+                                rows={3}
+                                placeholder="Tuliskan masukan atau saran untuk TP ini..."
+                                className="w-full resize-none rounded-2xl border border-amber-300 bg-white dark:bg-slate-900 px-3 py-2 text-xs text-slate-700 dark:text-slate-100"
+                              />
+                            </div>
+                          )}
                         </div>
                       );
                     })}
