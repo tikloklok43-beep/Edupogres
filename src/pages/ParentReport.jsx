@@ -1,6 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { CheckCircle2, BookOpen, ChevronDown, Clock, GraduationCap, Star, School } from 'lucide-react';
+import { CheckCircle2, BookOpen, ChevronDown, Clock, GraduationCap, Star, School, Award } from 'lucide-react';
+import { getDefaultPrePostScores, getTpPoints } from './Reports';
+
+// API base URL
+const API_BASE = (typeof window !== 'undefined' && window.location.origin.startsWith('http') && window.location.port !== '5173')
+  ? window.location.origin
+  : (typeof import.meta !== 'undefined' && import.meta.env.VITE_API_URL) || 'http://localhost:5000';
 
 // Status badge styles
 const statusStyles = {
@@ -28,22 +34,56 @@ export default function ParentReport({ student, selectedChapters = null }) {
 
   const [tpStatusOverrides, setTpStatusOverrides] = useState({});
   const [tpNoteOverrides, setTpNoteOverrides] = useState({});
+  const [prePostOverrides, setPrePostOverrides] = useState({});
   const [expandedSubjects, setExpandedSubjects] = useState({});
 
-  // Load saved statuses and teacher notes from localStorage
+  // Load saved statuses, teacher notes, and pre/post test scores from localStorage & backend API
   useEffect(() => {
     if (!student?.id) return;
+
+    let localStatus = {};
+    let localNotes = {};
+    let localPrePost = {};
+
     try {
       const raw = localStorage.getItem(`tpStatus_${student.id}`);
-      if (raw) setTpStatusOverrides(JSON.parse(raw));
+      if (raw) localStatus = JSON.parse(raw);
     } catch (e) { /* ignore */ }
+
     try {
       const rawNotes = localStorage.getItem(`tpNotes_${student.id}`);
-      if (rawNotes) setTpNoteOverrides(JSON.parse(rawNotes));
+      if (rawNotes) localNotes = JSON.parse(rawNotes);
     } catch (e) { /* ignore */ }
+
+    try {
+      const rawPrePost = localStorage.getItem(`tpPrePost_${student.id}`);
+      if (rawPrePost) localPrePost = JSON.parse(rawPrePost);
+    } catch (e) { /* ignore */ }
+
+    setTpStatusOverrides(localStatus);
+    setTpNoteOverrides(localNotes);
+    setPrePostOverrides(localPrePost);
+
+    // Fetch latest status overrides from backend server
+    fetch(`${API_BASE}/api/tp-report-status/${student.id}`)
+      .then(res => res.json())
+      .then(json => {
+        if (json && json.data) {
+          setTpStatusOverrides(prev => ({ ...prev, ...json.data }));
+        }
+      })
+      .catch(() => {});
   }, [student?.id]);
 
   if (!student) return null;
+
+  const getPrePostScores = (chapterTitle) => {
+    const custom = prePostOverrides[chapterTitle];
+    if (custom) {
+      return { preTest: Number(custom.preTest) || 0, postTest: Number(custom.postTest) || 0 };
+    }
+    return getDefaultPrePostScores(student.id, chapterTitle);
+  };
 
   // Build chapters data from globalTpData
   const reportData = (!globalTpData || Object.keys(globalTpData).length === 0)
@@ -118,7 +158,7 @@ export default function ParentReport({ student, selectedChapters = null }) {
           <div>
             <p className="text-xs font-black text-amber-800">📅 {today}</p>
             <p className="text-[10px] text-amber-600 font-bold">
-              Laporan ini menampilkan Bab-Bab yang sudah dipelajari ananda di sekolah.
+              Laporan ini menampilkan Nilai Pre-Test/Post-Test & Capaian TP Ananda.
             </p>
           </div>
           <div className="w-8 h-8 bg-amber-200 rounded-xl flex items-center justify-center text-base shrink-0">
@@ -172,53 +212,129 @@ export default function ParentReport({ student, selectedChapters = null }) {
               {/* Chapters & TPs */}
               {isExpanded && (
                 <div className="border-t border-slate-100 divide-y divide-slate-50">
-                  {subj.chapters.map((chap, chapIdx) => (
-                    <div key={chapIdx} className="p-4 space-y-3">
-                      
-                      {/* Chapter Title — Prominently Displayed */}
-                      <div className="flex items-center gap-2">
-                        <div className="w-7 h-7 rounded-xl bg-gradient-to-br from-sky-400 to-indigo-500 flex items-center justify-center shrink-0">
-                          <BookOpen className="w-3.5 h-3.5 text-white" />
-                        </div>
-                        <h4 className="font-black text-sm text-slate-800">{chap.title}</h4>
-                      </div>
+                  {subj.chapters.map((chap, chapIdx) => {
+                    const scores = getPrePostScores(chap.title);
+                    const chapTotalPoints = chap.tps.reduce((sum, tp) => sum + getTpPoints(tp.status), 0);
+                    const chapMaxPoints = chap.tps.length * 25;
 
-                      {/* TPs List */}
-                      <div className="space-y-2 pl-9">
-                        {chap.tps.length === 0 ? (
-                          <p className="text-xs text-slate-400 italic">Belum ada Tujuan Pembelajaran di Bab ini.</p>
-                        ) : chap.tps.map((tp, tpIdx) => (
-                          <div
-                            key={tpIdx}
-                            className="flex flex-col gap-2.5 p-2.5 bg-slate-50 rounded-2xl border border-slate-100"
-                          >
-                            <div className="flex items-start gap-2.5">
-                              <span className="text-base shrink-0 mt-0.5">{statusIcon[tp.status] || '•'}</span>
-                              <div className="flex-1 min-w-0">
-                                <p className="text-xs text-slate-700 leading-relaxed font-medium">{tp.text}</p>
-                                <span className={`mt-1 inline-flex items-center gap-0.5 rounded-full border px-2 py-0.5 text-[10px] font-black ${statusStyles[tp.status] || statusStyles['Paham']}`}>
-                                  {tp.status === 'Sedang Proses' ? (
-                                    <><Clock className="w-2.5 h-2.5" /> Sedang Proses</>
-                                  ) : tp.status}
-                                </span>
-                              </div>
+                    return (
+                      <div key={chapIdx} className="p-4 space-y-3">
+                        
+                        {/* Chapter Title */}
+                        <div className="flex items-center gap-2">
+                          <div className="w-7 h-7 rounded-xl bg-gradient-to-br from-sky-400 to-indigo-500 flex items-center justify-center shrink-0">
+                            <BookOpen className="w-3.5 h-3.5 text-white" />
+                          </div>
+                          <h4 className="font-black text-sm text-slate-800">{chap.title}</h4>
+                        </div>
+
+                        {/* Pre-Test & Post-Test + Total Points per Bab */}
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                          {/* Pre-Test */}
+                          <div className="flex items-center gap-2 rounded-2xl border border-orange-200 bg-gradient-to-r from-orange-50 to-amber-50 px-3 py-2">
+                            <div className="w-7 h-7 rounded-xl bg-orange-400 flex items-center justify-center shrink-0">
+                              <span className="text-white text-[10px] font-black">📝</span>
                             </div>
-                            {(tp.status === 'Paham' || tp.status === 'Cukup Paham' || tp.status === 'Belum Paham') && (
-                              <div className="rounded-2xl border border-amber-200 bg-amber-50 p-3 text-slate-800">
-                                <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-amber-700">Catatan Guru</p>
-                                {tp.note ? (
-                                  <p className="mt-2 text-[11px] italic leading-relaxed">"{tp.note}"</p>
-                                ) : (
-                                  <p className="mt-2 text-[11px] text-slate-500 italic">Belum ada catatan guru untuk status ini.</p>
-                                )}
-                              </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-[9px] font-black uppercase tracking-[0.15em] text-orange-600">Pre-Test</p>
+                              <p className="text-lg font-black text-orange-700 leading-tight">{scores.preTest}<span className="text-[10px] font-bold text-orange-400 ml-0.5">/100</span></p>
+                            </div>
+                          </div>
+
+                          {/* Post-Test */}
+                          <div className="flex items-center gap-2 rounded-2xl border border-emerald-200 bg-gradient-to-r from-emerald-50 to-teal-50 px-3 py-2">
+                            <div className="w-7 h-7 rounded-xl bg-emerald-500 flex items-center justify-center shrink-0">
+                              <span className="text-white text-[10px] font-black">✅</span>
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-[9px] font-black uppercase tracking-[0.15em] text-emerald-600">Post-Test</p>
+                              <p className="text-lg font-black text-emerald-700 leading-tight">{scores.postTest}<span className="text-[10px] font-bold text-emerald-400 ml-0.5">/100</span></p>
+                            </div>
+                            {scores.postTest > scores.preTest && (
+                              <span className="text-[9px] font-black text-emerald-600 bg-emerald-100 px-1.5 py-0.5 rounded-full">
+                                +{scores.postTest - scores.preTest}
+                              </span>
                             )}
                           </div>
-                        ))}
-                      </div>
 
-                    </div>
-                  ))}
+                          {/* Total Points Bab */}
+                          <div className="flex items-center gap-2 rounded-2xl border border-purple-200 bg-gradient-to-r from-purple-50 to-indigo-50 px-3 py-2">
+                            <div className="w-7 h-7 rounded-xl bg-purple-500 flex items-center justify-center shrink-0">
+                              <Award className="w-3.5 h-3.5 text-white" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-[9px] font-black uppercase tracking-[0.15em] text-purple-600">Total Point</p>
+                              <p className="text-lg font-black text-purple-700 leading-tight">{chapTotalPoints}<span className="text-[10px] font-bold text-purple-400 ml-0.5">/{chapMaxPoints}</span></p>
+                            </div>
+                            <div className="w-10 h-10 relative">
+                              <svg viewBox="0 0 36 36" className="w-full h-full -rotate-90">
+                                <circle cx="18" cy="18" r="14" fill="none" stroke="#e2e8f0" strokeWidth="3" />
+                                <circle cx="18" cy="18" r="14" fill="none" stroke="#a855f7" strokeWidth="3"
+                                  strokeDasharray={`${chapMaxPoints > 0 ? (chapTotalPoints / chapMaxPoints) * 88 : 0} 88`}
+                                  strokeLinecap="round" />
+                              </svg>
+                              <span className="absolute inset-0 flex items-center justify-center text-[8px] font-black text-purple-600">
+                                {chapMaxPoints > 0 ? Math.round(chapTotalPoints / chapMaxPoints * 100) : 0}%
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* TPs List */}
+                        <div className="space-y-2 pl-2">
+                          {chap.tps.length === 0 ? (
+                            <p className="text-xs text-slate-400 italic">Belum ada Tujuan Pembelajaran di Bab ini.</p>
+                          ) : chap.tps.map((tp, tpIdx) => {
+                            const tpPoints = getTpPoints(tp.status);
+                            return (
+                              <div
+                                key={tpIdx}
+                                className="flex flex-col gap-2.5 p-2.5 bg-slate-50 rounded-2xl border border-slate-100"
+                              >
+                                <div className="flex items-start gap-2.5">
+                                  <span className="text-base shrink-0 mt-0.5">{statusIcon[tp.status] || '•'}</span>
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-xs text-slate-700 leading-relaxed font-medium">{tp.text}</p>
+                                    
+                                    {/* Status Badge + Point Badge */}
+                                    <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                                      <span className={`inline-flex items-center gap-0.5 rounded-full border px-2 py-0.5 text-[10px] font-black ${statusStyles[tp.status] || statusStyles['Paham']}`}>
+                                        {tp.status === 'Sedang Proses' ? (
+                                          <><Clock className="w-2.5 h-2.5" /> Sedang Proses</>
+                                        ) : tp.status}
+                                      </span>
+
+                                      {tp.status === 'Sedang Proses' ? (
+                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border border-slate-200 bg-slate-100 text-slate-500 text-[10px] font-black">
+                                          <Clock className="w-3 h-3 text-slate-400" /> Tanpa Nilai
+                                        </span>
+                                      ) : (
+                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border border-purple-200 bg-purple-50 text-purple-700 text-[10px] font-black">
+                                          <Award className="w-3 h-3 text-purple-500" /> +{tpPoints} Pt
+                                        </span>
+                                      )}
+                                    </div>
+
+                                  </div>
+                                </div>
+                                {(tp.status === 'Paham' || tp.status === 'Cukup Paham' || tp.status === 'Belum Paham') && (
+                                  <div className="rounded-2xl border border-amber-200 bg-amber-50 p-3 text-slate-800">
+                                    <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-amber-700">Catatan Guru</p>
+                                    {tp.note ? (
+                                      <p className="mt-2 text-[11px] italic leading-relaxed">"{tp.note}"</p>
+                                    ) : (
+                                      <p className="mt-2 text-[11px] text-slate-500 italic">Belum ada catatan guru untuk status ini.</p>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -227,11 +343,12 @@ export default function ParentReport({ student, selectedChapters = null }) {
 
         {/* Legend */}
         <div className="bg-white rounded-3xl p-4 shadow-sm border border-slate-100 space-y-2">
-          <p className="text-[10px] font-black uppercase tracking-wider text-slate-500">📖 Keterangan Status Capaian</p>
+          <p className="text-[10px] font-black uppercase tracking-wider text-slate-500">📖 Keterangan Status Capaian & Poin</p>
           <div className="grid grid-cols-2 gap-1.5">
             {Object.entries(statusStyles).map(([status, cls]) => (
-              <div key={status} className={`flex items-center gap-1.5 px-2 py-1 rounded-xl border text-[10px] font-bold ${cls}`}>
-                <span>{statusIcon[status]}</span> {status}
+              <div key={status} className={`flex items-center justify-between px-2 py-1 rounded-xl border text-[10px] font-bold ${cls}`}>
+                <span className="flex items-center gap-1"><span>{statusIcon[status]}</span> {status}</span>
+                <span className="text-[9px] opacity-80">{status === 'Sedang Proses' ? 'Tanpa Nilai' : `+${getTpPoints(status)} Pt`}</span>
               </div>
             ))}
           </div>

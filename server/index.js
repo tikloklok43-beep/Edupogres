@@ -62,7 +62,7 @@ const db = {
   achievements: [...INITIAL_ACHIEVEMENTS],
   dailyNotes: [...INITIAL_DAILY_NOTES],
   gallery: [...INITIAL_GALLERY],
-messages: [...INITIAL_MESSAGES],
+  messages: [...INITIAL_MESSAGES],
   demoAccounts: [...DEMO_ACCOUNTS],
   tpReportStatus: {} // per-student TP status overrides: { [studentId]: { [tpText]: status } }
 };

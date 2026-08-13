@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useSearchParams, useParams } from 'react-router-dom';
-import { FileSpreadsheet, Printer, Download, FileText, CheckCircle2, Share2, ChevronDown, Clock, Filter, CheckSquare, Square, BookOpen, Link as LinkIcon } from 'lucide-react';
+import { FileSpreadsheet, Printer, Download, FileText, CheckCircle2, Share2, ChevronDown, Clock, Filter, CheckSquare, Square, BookOpen, Link as LinkIcon, TrendingUp, Award, Target, Edit3, Save, X, Sparkles } from 'lucide-react';
 
 // API base URL
 const API_BASE = (typeof window !== 'undefined' && window.location.origin.startsWith('http') && window.location.port !== '5173')
@@ -17,6 +17,32 @@ const statusStyles = {
 };
 
 const STATUS_OPTIONS = ['Sangat Paham', 'Paham', 'Sedang Proses', 'Cukup Paham', 'Belum Paham'];
+
+// Deterministic default Pre-Test & Post-Test scores based on student ID & chapter title
+export const getDefaultPrePostScores = (studentId, chapterTitle) => {
+  let hash = 0;
+  const str = `${studentId || 'std'}_${chapterTitle}`;
+  for (let i = 0; i < str.length; i++) {
+    hash = (hash << 5) - hash + str.charCodeAt(i);
+    hash |= 0;
+  }
+  const absHash = Math.abs(hash);
+  const preTest = 58 + (absHash % 22); // 58 - 79
+  const postTest = Math.min(100, preTest + 14 + (absHash % 18)); // preTest + 14..31
+  return { preTest, postTest };
+};
+
+// Points system per TP status
+export const getTpPoints = (status) => {
+  switch (status) {
+    case 'Sangat Paham': return 25;
+    case 'Paham': return 20;
+    case 'Cukup Paham': return 15;
+    case 'Sedang Proses': return 0;
+    case 'Belum Paham': return 5;
+    default: return 0;
+  }
+};
 
 const renderStatusLabel = (status) => status === 'Sedang Proses' ? (
   <span className="inline-flex items-center gap-1"><Clock className="w-3 h-3" /> Sedang Proses</span>
@@ -58,6 +84,8 @@ export default function Reports({ parentAccess = false }) {
   // Per-student TP status and notes overrides
   const [tpStatusByStudent, setTpStatusByStudent] = useState({});
   const [tpNotesByStudent, setTpNotesByStudent] = useState({});
+  const [prePostByStudent, setPrePostByStudent] = useState({});
+  const [editingPrePost, setEditingPrePost] = useState(null); // { chapTitle, preTest, postTest }
   const [openDropdown, setOpenDropdown] = useState(null);
   const [showFilterPanel, setShowFilterPanel] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
@@ -101,6 +129,13 @@ export default function Reports({ parentAccess = false }) {
 
   useEffect(() => {
     if (!studentKey) return;
+    try {
+      const rawPrePost = localStorage.getItem(`tpPrePost_${studentKey}`);
+      if (rawPrePost) {
+        setPrePostByStudent(prev => ({ ...prev, [studentKey]: JSON.parse(rawPrePost) }));
+      }
+    } catch (e) { /* ignore */ }
+
     let cancelled = false;
     let localOverrides = {};
     let localNotes = {};
@@ -132,8 +167,31 @@ export default function Reports({ parentAccess = false }) {
           setTpNotesByStudent(prev => ({ ...prev, [studentKey]: localNotes }));
         }
       });
+
     return () => { cancelled = true; };
   }, [studentKey, globalTpData]);
+
+  const getPrePostScores = (chapTitle) => {
+    const studentScores = prePostByStudent[studentKey] || {};
+    if (studentScores[chapTitle]) {
+      return studentScores[chapTitle];
+    }
+    return getDefaultPrePostScores(studentKey, chapTitle);
+  };
+
+  const handleSavePrePost = (chapTitle, preVal, postVal) => {
+    if (!studentKey) return;
+    const current = prePostByStudent[studentKey] || {};
+    const updated = {
+      ...current,
+      [chapTitle]: { preTest: Math.min(100, Math.max(0, Number(preVal) || 0)), postTest: Math.min(100, Math.max(0, Number(postVal) || 0)) }
+    };
+    setPrePostByStudent(prev => ({ ...prev, [studentKey]: updated }));
+    try {
+      localStorage.setItem(`tpPrePost_${studentKey}`, JSON.stringify(updated));
+    } catch (e) { }
+    setEditingPrePost(null);
+  };
 
   const rawTpData = (tpStatusByStudent[studentKey] || {}).data || buildDynamicReportData(globalTpData);
   const rawNotes = (tpNotesByStudent[studentKey] || {});
@@ -192,10 +250,23 @@ export default function Reports({ parentAccess = false }) {
     try { localStorage.setItem(`tpNotes_${key}`, JSON.stringify(newNotes)); } catch (e) { }
   };
 
-  // Include the selected chapters in the public link so another device sees the same report.
+  // Include selected chapters in public link (omitted when all chapters selected for clean short URL)
   const parentLink = (() => {
     const url = new URL(`/ortu/${targetStudent?.id}`, window.location.origin);
-    url.searchParams.set('bab', JSON.stringify(selectedChapters));
+    const isAllSelected = allChapters.length > 0 && selectedChapters.length === allChapters.length;
+    
+    if (!isAllSelected) {
+      const allTitles = allChapters.map(c => c.chapter);
+      const selectedIndices = selectedChapters
+        .map(title => allTitles.indexOf(title))
+        .filter(idx => idx !== -1);
+
+      if (selectedIndices.length > 0 && selectedIndices.length < allTitles.length) {
+        url.searchParams.set('b', selectedIndices.join(','));
+      } else {
+        url.searchParams.set('bab', JSON.stringify(selectedChapters));
+      }
+    }
     return url.toString();
   })();
 
@@ -416,14 +487,104 @@ export default function Reports({ parentAccess = false }) {
               </div>
 
               {/* Chapters */}
-              {subj.chapters.map((chap, chapIdx) => (
+              {subj.chapters.map((chap, chapIdx) => {
+                const scores = getPrePostScores(chap.title);
+                const chapTotalPoints = chap.tps.reduce((sum, tp) => sum + getTpPoints(tp.status), 0);
+                const chapMaxPoints = chap.tps.length * 25;
+                const isEditingThis = editingPrePost && editingPrePost.chapTitle === chap.title;
+
+                return (
                 <div key={chapIdx} className="pl-3 sm:pl-6 border-l-4 border-emerald-300 dark:border-emerald-700 space-y-2">
 
-                  {/* Chapter Title — Prominently displayed */}
+                  {/* Chapter Title */}
                   <div className="flex items-center gap-2 py-1">
                     <BookOpen className="w-4 h-4 text-sky-500 shrink-0" />
                     <h4 className="font-black text-sm text-slate-800 dark:text-slate-100">{chap.title}</h4>
                   </div>
+
+                  {/* Pre-Test & Post-Test + Total Points per Bab */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                    {/* Pre-Test */}
+                    <div className="flex items-center gap-2 rounded-2xl border border-orange-200 bg-gradient-to-r from-orange-50 to-amber-50 dark:from-orange-950/40 dark:to-amber-950/30 px-3 py-2">
+                      <div className="w-7 h-7 rounded-xl bg-orange-400 flex items-center justify-center shrink-0">
+                        <span className="text-white text-[10px] font-black">📝</span>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[9px] font-black uppercase tracking-[0.15em] text-orange-600 dark:text-orange-400">Pre-Test</p>
+                        {isEditingThis ? (
+                          <input type="number" min="0" max="100" defaultValue={editingPrePost.preTest}
+                            onChange={e => setEditingPrePost(p => ({ ...p, preTest: e.target.value }))}
+                            className="w-16 text-sm font-black text-orange-700 bg-white dark:bg-slate-800 border border-orange-300 rounded-lg px-1.5 py-0.5" />
+                        ) : (
+                          <p className="text-lg font-black text-orange-700 dark:text-orange-300 leading-tight">{scores.preTest}<span className="text-[10px] font-bold text-orange-400 ml-0.5">/100</span></p>
+                        )}
+                      </div>
+                    </div>
+                    {/* Post-Test */}
+                    <div className="flex items-center gap-2 rounded-2xl border border-emerald-200 bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-950/40 dark:to-teal-950/30 px-3 py-2">
+                      <div className="w-7 h-7 rounded-xl bg-emerald-500 flex items-center justify-center shrink-0">
+                        <span className="text-white text-[10px] font-black">✅</span>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[9px] font-black uppercase tracking-[0.15em] text-emerald-600 dark:text-emerald-400">Post-Test</p>
+                        {isEditingThis ? (
+                          <input type="number" min="0" max="100" defaultValue={editingPrePost.postTest}
+                            onChange={e => setEditingPrePost(p => ({ ...p, postTest: e.target.value }))}
+                            className="w-16 text-sm font-black text-emerald-700 bg-white dark:bg-slate-800 border border-emerald-300 rounded-lg px-1.5 py-0.5" />
+                        ) : (
+                          <p className="text-lg font-black text-emerald-700 dark:text-emerald-300 leading-tight">{scores.postTest}<span className="text-[10px] font-bold text-emerald-400 ml-0.5">/100</span></p>
+                        )}
+                      </div>
+                      {scores.postTest > scores.preTest && (
+                        <span className="text-[9px] font-black text-emerald-600 bg-emerald-100 dark:bg-emerald-900/40 px-1.5 py-0.5 rounded-full">
+                          +{scores.postTest - scores.preTest}
+                        </span>
+                      )}
+                    </div>
+                    {/* Total Points Bab */}
+                    <div className="flex items-center gap-2 rounded-2xl border border-purple-200 bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-950/40 dark:to-indigo-950/30 px-3 py-2">
+                      <div className="w-7 h-7 rounded-xl bg-purple-500 flex items-center justify-center shrink-0">
+                        <Award className="w-3.5 h-3.5 text-white" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[9px] font-black uppercase tracking-[0.15em] text-purple-600 dark:text-purple-400">Total Point</p>
+                        <p className="text-lg font-black text-purple-700 dark:text-purple-300 leading-tight">{chapTotalPoints}<span className="text-[10px] font-bold text-purple-400 ml-0.5">/{chapMaxPoints}</span></p>
+                      </div>
+                      <div className="w-10 h-10 relative">
+                        <svg viewBox="0 0 36 36" className="w-full h-full -rotate-90">
+                          <circle cx="18" cy="18" r="14" fill="none" stroke="#e2e8f0" strokeWidth="3" />
+                          <circle cx="18" cy="18" r="14" fill="none" stroke="#a855f7" strokeWidth="3"
+                            strokeDasharray={`${chapMaxPoints > 0 ? (chapTotalPoints / chapMaxPoints) * 88 : 0} 88`}
+                            strokeLinecap="round" />
+                        </svg>
+                        <span className="absolute inset-0 flex items-center justify-center text-[8px] font-black text-purple-600">
+                          {chapMaxPoints > 0 ? Math.round(chapTotalPoints / chapMaxPoints * 100) : 0}%
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                  {/* Edit Pre/Post Button (teacher only) */}
+                  {!isParentView && (
+                    <div className="no-print flex items-center gap-2 pl-1">
+                      {isEditingThis ? (
+                        <>
+                          <button onClick={() => handleSavePrePost(chap.title, editingPrePost.preTest, editingPrePost.postTest)}
+                            className="px-2.5 py-1 bg-emerald-500 text-white font-extrabold text-[10px] rounded-xl flex items-center gap-1 hover:bg-emerald-600 transition">
+                            <Save className="w-3 h-3" /> Simpan
+                          </button>
+                          <button onClick={() => setEditingPrePost(null)}
+                            className="px-2.5 py-1 bg-slate-200 text-slate-600 font-extrabold text-[10px] rounded-xl flex items-center gap-1 hover:bg-slate-300 transition">
+                            <X className="w-3 h-3" /> Batal
+                          </button>
+                        </>
+                      ) : (
+                        <button onClick={() => setEditingPrePost({ chapTitle: chap.title, preTest: scores.preTest, postTest: scores.postTest })}
+                          className="px-2.5 py-1 bg-sky-50 text-sky-600 border border-sky-200 font-extrabold text-[10px] rounded-xl flex items-center gap-1 hover:bg-sky-100 transition">
+                          <Edit3 className="w-3 h-3" /> Edit Nilai Pre/Post-Test
+                        </button>
+                      )}
+                    </div>
+                  )}
 
                   {/* TPs in this chapter */}
                   <div className="space-y-1.5 pl-6">
@@ -431,6 +592,7 @@ export default function Reports({ parentAccess = false }) {
                       <p className="text-xs text-slate-400 italic">Belum ada TP di bab ini.</p>
                     ) : chap.tps.map((tp, tpIdx) => {
                       const isOpen = openDropdown === `${chap.title}__${tp.text}`;
+                      const tpPoints = getTpPoints(tp.status);
                       return (
                         <div key={tpIdx} className="flex flex-col gap-3 p-2.5 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-700">
                           <div className="flex items-start gap-2">
@@ -438,36 +600,48 @@ export default function Reports({ parentAccess = false }) {
                             <div className="flex-1 min-w-0">
                               <p className="text-xs text-slate-700 dark:text-slate-200 leading-relaxed">{tp.text}</p>
 
-                              {/* Status Badge */}
-                              <span className="relative inline-block mt-1">
-                                <button
-                                  onClick={() => isParentView ? null : setOpenDropdown(isOpen ? null : `${chap.title}__${tp.text}`)}
-                                  className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-black ${statusStyles[tp.status]} ${
-                                    isParentView ? 'cursor-default' : 'cursor-pointer hover:scale-105 hover:shadow-sm transition'
-                                  }`}
-                                >
-                                  {renderStatusLabel(tp.status)}
-                                  {!isParentView && <ChevronDown className="w-3 h-3" />}
-                                </button>
+                              {/* Status Badge + Point Badge */}
+                              <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                                <span className="relative inline-block">
+                                  <button
+                                    onClick={() => isParentView ? null : setOpenDropdown(isOpen ? null : `${chap.title}__${tp.text}`)}
+                                    className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-black ${statusStyles[tp.status]} ${
+                                      isParentView ? 'cursor-default' : 'cursor-pointer hover:scale-105 hover:shadow-sm transition'
+                                    }`}
+                                  >
+                                    {renderStatusLabel(tp.status)}
+                                    {!isParentView && <ChevronDown className="w-3 h-3" />}
+                                  </button>
 
-                                {/* Status Dropdown */}
-                                {isOpen && !isParentView && (
-                                  <div className="absolute left-0 top-full mt-1 z-20 w-44 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-xl p-1.5">
-                                    {STATUS_OPTIONS.map(opt => (
-                                      <button
-                                        key={opt}
-                                        onClick={() => handleStatusChange(tp.text, opt)}
-                                        className={`w-full flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-xl text-[10px] font-black text-left cursor-pointer transition ${
-                                          tp.status === opt ? 'bg-slate-100 dark:bg-slate-800' : 'hover:bg-slate-50 dark:hover:bg-slate-800'
-                                        }`}
-                                      >
-                                        <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 ${statusStyles[opt]}`}>{renderStatusLabel(opt)}</span>
-                                        {tp.status === opt && <span className="text-emerald-500">✓</span>}
-                                      </button>
-                                    ))}
-                                  </div>
+                                  {/* Status Dropdown */}
+                                  {isOpen && !isParentView && (
+                                    <div className="absolute left-0 top-full mt-1 z-20 w-44 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-xl p-1.5">
+                                      {STATUS_OPTIONS.map(opt => (
+                                        <button
+                                          key={opt}
+                                          onClick={() => handleStatusChange(tp.text, opt)}
+                                          className={`w-full flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-xl text-[10px] font-black text-left cursor-pointer transition ${
+                                            tp.status === opt ? 'bg-slate-100 dark:bg-slate-800' : 'hover:bg-slate-50 dark:hover:bg-slate-800'
+                                          }`}
+                                        >
+                                          <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 ${statusStyles[opt]}`}>{renderStatusLabel(opt)}</span>
+                                          {tp.status === opt && <span className="text-emerald-500">✓</span>}
+                                        </button>
+                                      ))}
+                                    </div>
+                                  )}
+                                </span>
+
+                                {tp.status === 'Sedang Proses' ? (
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border border-slate-200 bg-slate-100 text-slate-500 text-[10px] font-black dark:bg-slate-800 dark:border-slate-700 dark:text-slate-400">
+                                    <Clock className="w-3 h-3 text-slate-400" /> Tanpa Nilai
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border border-purple-200 bg-purple-50 text-purple-700 text-[10px] font-black dark:bg-purple-950/40 dark:border-purple-800 dark:text-purple-300">
+                                    <Award className="w-3 h-3 text-purple-500" /> +{tpPoints} Pt
+                                  </span>
                                 )}
-                              </span>
+                              </div>
                             </div>
                           </div>
 
@@ -490,7 +664,8 @@ export default function Reports({ parentAccess = false }) {
                     })}
                   </div>
                 </div>
-              ))}
+              );
+            })}
             </div>
           ))}
         </div>

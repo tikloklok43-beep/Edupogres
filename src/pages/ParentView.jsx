@@ -4,16 +4,32 @@ import { useAuth } from '../context/AuthContext';
 import { INITIAL_STUDENTS } from '../data/initialData';
 import ParentReport from './ParentReport';
 
+// Helper to build chapter title list in consistent order
+const getAllChapterTitles = (globalTpData) => {
+  if (!globalTpData || Object.keys(globalTpData).length === 0) return [];
+  return Object.values(globalTpData).flatMap(subjObj => 
+    (subjObj.chapters || []).map(chap => chap.chapter)
+  );
+};
+
 export default function ParentView() {
   const { studentId } = useParams();
   const [searchParams] = useSearchParams();
-  const { students } = useAuth();
+  const { students, tpData: globalTpData } = useAuth();
 
   let selectedChapters = null;
   try {
-    const encodedChapters = searchParams.get('bab');
-    if (encodedChapters !== null) {
-      const parsedChapters = JSON.parse(encodedChapters);
+    const bParam = searchParams.get('b');
+    const babParam = searchParams.get('bab');
+
+    if (bParam !== null) {
+      // Short format: index list e.g. ?b=0,1,2
+      const allTitles = getAllChapterTitles(globalTpData);
+      const indices = bParam.split(',').map(Number);
+      selectedChapters = indices.map(idx => allTitles[idx]).filter(Boolean);
+    } else if (babParam !== null) {
+      // Legacy JSON format
+      const parsedChapters = JSON.parse(babParam);
       if (Array.isArray(parsedChapters)) selectedChapters = parsedChapters;
     }
   } catch (e) {

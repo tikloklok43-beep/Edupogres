@@ -393,19 +393,19 @@ export default function AdminPanel() {
             <div className="grid grid-cols-1 gap-3 text-xs">
               <label className="space-y-1">
                 <span className="font-bold text-slate-600">Nama lengkap</span>
-                <input value={studentDraft.name} onChange={(e) => updateStudentField('name', e.target.value)} className="w-full rounded-xl border border-slate-200 p-2.5" />
+                <input value={studentDraft.name} onChange={(e) => updateStudentField('name', e.target.value)} className="w-full rounded-xl border border-slate-200 bg-white px-2.5 py-2.5 text-slate-900 shadow-sm outline-none transition focus:border-sky-300 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100" />
               </label>
               <label className="space-y-1">
                 <span className="font-bold text-slate-600">NISN</span>
-                <input value={studentDraft.nisn} onChange={(e) => updateStudentField('nisn', e.target.value)} className="w-full rounded-xl border border-slate-200 p-2.5" />
+                <input value={studentDraft.nisn} onChange={(e) => updateStudentField('nisn', e.target.value)} className="w-full rounded-xl border border-slate-200 bg-white px-2.5 py-2.5 text-slate-900 shadow-sm outline-none transition focus:border-sky-300 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100" />
               </label>
               <label className="space-y-1">
                 <span className="font-bold text-slate-600">Kelas</span>
-                <input value={studentDraft.className} onChange={(e) => updateStudentField('className', e.target.value)} className="w-full rounded-xl border border-slate-200 p-2.5" />
+                <input value={studentDraft.className} onChange={(e) => updateStudentField('className', e.target.value)} className="w-full rounded-xl border border-slate-200 bg-white px-2.5 py-2.5 text-slate-900 shadow-sm outline-none transition focus:border-sky-300 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100" />
               </label>
               <label className="space-y-1">
                 <span className="font-bold text-slate-600">Wali kelas</span>
-                <input value={studentDraft.homeroomTeacher} onChange={(e) => updateStudentField('homeroomTeacher', e.target.value)} className="w-full rounded-xl border border-slate-200 p-2.5" />
+                <input value={studentDraft.homeroomTeacher} onChange={(e) => updateStudentField('homeroomTeacher', e.target.value)} className="w-full rounded-xl border border-slate-200 bg-white px-2.5 py-2.5 text-slate-900 shadow-sm outline-none transition focus:border-sky-300 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100" />
               </label>
               <div className="space-y-2">
                 <span className="font-bold text-slate-600">Foto profil siswa</span>
@@ -420,39 +420,39 @@ export default function AdminPanel() {
               </div>
               <label className="space-y-1">
                 <span className="font-bold text-slate-600">Nama orang tua</span>
-                <input value={studentDraft.parentName} onChange={(e) => updateStudentField('parentName', e.target.value)} className="w-full rounded-xl border border-slate-200 p-2.5" />
+                <input value={studentDraft.parentName} onChange={(e) => updateStudentField('parentName', e.target.value)} className="w-full rounded-xl border border-slate-200 bg-white px-2.5 py-2.5 text-slate-900 shadow-sm outline-none transition focus:border-sky-300 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100" />
               </label>
               <label className="space-y-1">
                 <span className="font-bold text-slate-600">Nomor WA orang tua</span>
-                <input value={studentDraft.parentPhone} onChange={(e) => updateStudentField('parentPhone', e.target.value)} className="w-full rounded-xl border border-slate-200 p-2.5" />
+                <input value={studentDraft.parentPhone} onChange={(e) => updateStudentField('parentPhone', e.target.value)} className="w-full rounded-xl border border-slate-200 bg-white px-2.5 py-2.5 text-slate-900 shadow-sm outline-none transition focus:border-sky-300 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100" />
               </label>
               <label className="space-y-1">
                 <span className="font-bold text-slate-600">Email orang tua</span>
-                <input value={studentDraft.parentEmail} onChange={(e) => updateStudentField('parentEmail', e.target.value)} className="w-full rounded-xl border border-slate-200 p-2.5" />
+                <input value={studentDraft.parentEmail} onChange={(e) => updateStudentField('parentEmail', e.target.value)} className="w-full rounded-xl border border-slate-200 bg-white px-2.5 py-2.5 text-slate-900 shadow-sm outline-none transition focus:border-sky-300 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100" />
               </label>
               <div className="grid grid-cols-2 gap-3">
                 <label className="space-y-1">
                   <span className="font-bold text-slate-600">Kehadiran %</span>
-                  <input type="number" value={studentDraft.attendanceRate} onChange={(e) => updateStudentField('attendanceRate', Number(e.target.value))} className="w-full rounded-xl border border-slate-200 p-2.5" />
+                  <input type="number" value={studentDraft.attendanceRate} onChange={(e) => updateStudentField('attendanceRate', Number(e.target.value))} className="w-full rounded-xl border border-slate-200 bg-white px-2.5 py-2.5 text-slate-900 shadow-sm outline-none transition focus:border-sky-300 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100" />
                 </label>
                 <label className="space-y-1">
                   <span className="font-bold text-slate-600">Nilai rata-rata</span>
-                  <input type="number" value={studentDraft.averageScore} onChange={(e) => updateStudentField('averageScore', Number(e.target.value))} className="w-full rounded-xl border border-slate-200 p-2.5" />
+                  <input type="number" value={studentDraft.averageScore} onChange={(e) => updateStudentField('averageScore', Number(e.target.value))} className="w-full rounded-xl border border-slate-200 bg-white px-2.5 py-2.5 text-slate-900 shadow-sm outline-none transition focus:border-sky-300 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100" />
                 </label>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <label className="space-y-1">
                   <span className="font-bold text-slate-600">Progress %</span>
-                  <input type="number" value={studentDraft.overallProgress} onChange={(e) => updateStudentField('overallProgress', Number(e.target.value))} className="w-full rounded-xl border border-slate-200 p-2.5" />
+                  <input type="number" value={studentDraft.overallProgress} onChange={(e) => updateStudentField('overallProgress', Number(e.target.value))} className="w-full rounded-xl border border-slate-200 bg-white px-2.5 py-2.5 text-slate-900 shadow-sm outline-none transition focus:border-sky-300 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100" />
                 </label>
                 <label className="space-y-1">
                   <span className="font-bold text-slate-600">Prestasi</span>
-                  <input type="number" value={studentDraft.totalAchievements} onChange={(e) => updateStudentField('totalAchievements', Number(e.target.value))} className="w-full rounded-xl border border-slate-200 p-2.5" />
+                  <input type="number" value={studentDraft.totalAchievements} onChange={(e) => updateStudentField('totalAchievements', Number(e.target.value))} className="w-full rounded-xl border border-slate-200 bg-white px-2.5 py-2.5 text-slate-900 shadow-sm outline-none transition focus:border-sky-300 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100" />
                 </label>
               </div>
               <label className="space-y-1">
                 <span className="font-bold text-slate-600">Hafalan / catatan</span>
-                <input value={studentDraft.totalMemorization} onChange={(e) => updateStudentField('totalMemorization', e.target.value)} className="w-full rounded-xl border border-slate-200 p-2.5" />
+                <input value={studentDraft.totalMemorization} onChange={(e) => updateStudentField('totalMemorization', e.target.value)} className="w-full rounded-xl border border-slate-200 bg-white px-2.5 py-2.5 text-slate-900 shadow-sm outline-none transition focus:border-sky-300 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100" />
               </label>
             </div>
 

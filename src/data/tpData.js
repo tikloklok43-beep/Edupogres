@@ -1,7 +1,7 @@
 // Data Tujuan Pembelajaran (TP) per Bab untuk Jadwal Pelajaran 2026/2027
 
 export const TP_DATA = {
-"Pancasila": {
+  "Pancasila": {
     subject: "Pendidikan Pancasila",
     teacher: "Ustadz Iski",
     chapters: [
@@ -42,11 +42,19 @@ export const TP_DATA = {
           "3. Peserta didik dapat menelaah hak dan kewajiban yang dimiliki sebagai warga negara Indonesia.",
           "4. Peserta didik dapat menyajikan hasil telaah tentang hak dan kewajiban yang dimiliki sebagai warga negara Indonesia."
         ]
-      } 
+      },
+      {
+        chapter: "Bab 5: Barisan dan Deret",
+        tps: [
+          "1. Peserta didik dapat mengidentifikasi pola barisan dan deret bilangan.",
+          "2. Peserta didik dapat mencari suku n dari barisan dan deret.",
+          "3. Peserta didik dapat menerapkan barisan dan deret dalam permasalahan sehari-hari."
+        ]
+      }
     ]
   },
 
-"Matematika": {
+  "Matematika": {
     subject: "Matematika",
     teacher: "Ustadz Iski",
     chapters: [
@@ -69,7 +77,7 @@ export const TP_DATA = {
     ]
   },
 
-"IPAS": {
+  "IPAS": {
     subject: "IPAS (Ilmu Pengetahuan Alam dan Sosial)",
     teacher: "Ustadz Iski",
     chapters: [
@@ -91,7 +99,7 @@ export const TP_DATA = {
     ]
   },
 
-"B. Indonesia": {
+  "B. Indonesia": {
     subject: "Bahasa Indonesia",
     teacher: "Ustadz Iski",
     chapters: [
@@ -136,7 +144,7 @@ export const TP_DATA = {
     ]
   },
 
-"B. Arab": {
+  "B. Arab": {
     subject: "Bahasa Arab",
     teacher: "Ustadz Iski",
     chapters: [
@@ -151,7 +159,7 @@ export const TP_DATA = {
     ]
   },
 
-"Seni Rupa": {
+  "Seni Rupa": {
     subject: "Seni Rupa",
     teacher: "Ustadz Iski",
     chapters: [
@@ -181,7 +189,7 @@ export const TP_DATA = {
     ]
   },
 
-"PAI Nasional": {
+  "PAI Nasional": {
     subject: "PAI Nasional",
     teacher: "Ustadz Iski",
     chapters: [
@@ -196,7 +204,7 @@ export const TP_DATA = {
     ]
   },
 
-"PAI Lokal": {
+  "PAI Lokal": {
     subject: "PAI Lokal (Fiqih, Hadits, Sirah)",
     teacher: "Ustadz Iski",
     chapters: [
