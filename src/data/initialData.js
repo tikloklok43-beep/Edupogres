@@ -259,13 +259,37 @@ export const INITIAL_PORTFOLIOS = [
   }
 ];
 
-export const INITIAL_ACHIEVEMENTS = [
-  { id: "ach-1", title: "Juara 1 Lomba Sains Cilik Tingkat Kota", category: "Sains", year: "2026", icon: "🏆", badgeColor: "from-amber-400 to-yellow-500", description: "Meraih Medali Emas Olimpiade Sains Anak Indonesia." },
-  { id: "ach-2", title: "Tuntas Hafalan Juz 30 (Mumtaz)", category: "Tahfidz", year: "2026", icon: "📖", badgeColor: "from-emerald-400 to-teal-500", description: "Lulus ujian munaqasyah hafalan surah An-Naba hingga An-Nas." },
-  { id: "ach-3", title: "Bintang Kehadiran Sempurna (100%)", category: "Disiplin", year: "2026", icon: "⭐", badgeColor: "from-sky-400 to-blue-500", description: "Tidak pernah absen selama 1 semester berturut-turut." },
-  { id: "ach-4", title: "Juara 2 Lomba Melukis Poster Lingkungan", category: "Festival Seni", year: "2026", icon: "🎨", badgeColor: "from-pink-400 to-rose-500", description: "Piala Perak Hari Bumi dan Pelestarian Lingkungan." },
-  { id: "ach-5", title: "Kapten Regu Terbaik Pramuka Siaga", category: "Pramuka", year: "2026", icon: "⛺", badgeColor: "from-purple-400 to-indigo-500", description: "Kepemimpinan terbaik dalam Perkemahan Sabtu Minggu." }
+const ACHIEVEMENT_TEMPLATES = [
+  { title: "Juara 1 Lomba Sains Cilik Tingkat Kota", category: "Sains", icon: "🏆", badgeColor: "from-amber-400 to-yellow-500", description: "Meraih Medali Emas Olimpiade Sains Anak Indonesia." },
+  { title: "Tuntas Hafalan Juz 30 (Mumtaz)", category: "Tahfidz", icon: "📖", badgeColor: "from-emerald-400 to-teal-500", description: "Lulus ujian munaqasyah hafalan surah An-Naba hingga An-Nas." },
+  { title: "Bintang Kehadiran Sempurna (100%)", category: "Disiplin", icon: "⭐", badgeColor: "from-sky-400 to-blue-500", description: "Tidak pernah absen selama 1 semester berturut-turut." },
+  { title: "Juara 2 Lomba Melukis Poster Lingkungan", category: "Festival Seni", icon: "🎨", badgeColor: "from-pink-400 to-rose-500", description: "Piala Perak Hari Bumi dan Pelestarian Lingkungan." },
+  { title: "Kapten Regu Terbaik Pramuka Siaga", category: "Pramuka", icon: "⛺", badgeColor: "from-purple-400 to-indigo-500", description: "Kepemimpinan terbaik dalam Perkemahan Sabtu Minggu." },
+  { title: "Juara 3 Olimpiade Matematika SD", category: "Akademik", icon: "🥉", badgeColor: "from-orange-400 to-red-500", description: "Medali perunggu tingkat kecamatan." },
+  { title: "Penghargaan Siswa Teladan Bulan Ini", category: "Apresiasi", icon: "🌟", badgeColor: "from-yellow-400 to-amber-500", description: "Dipilih sebagai teladan sikap dan prestasi di kelas." }
 ];
+
+export const buildInitialAchievements = () => {
+  const result = [];
+  INITIAL_STUDENTS.forEach((student) => {
+    for (let i = 0; i < student.totalAchievements; i++) {
+      const template = ACHIEVEMENT_TEMPLATES[i % ACHIEVEMENT_TEMPLATES.length];
+      result.push({
+        id: `ach-${student.id}-${i + 1}`,
+        studentId: student.id,
+        title: template.title,
+        category: template.category,
+        year: "2026",
+        icon: template.icon,
+        badgeColor: template.badgeColor,
+        description: template.description
+      });
+    }
+  });
+  return result;
+};
+
+export const INITIAL_ACHIEVEMENTS = buildInitialAchievements();
 
 export const INITIAL_DAILY_NOTES = [
   { id: "note-1", date: "2026-07-28", category: "Sikap & Gotong Royong", content: "Hari ini ananda aktif berdiskusi kelompok sains dan dengan senang hati membantu teman yang kesulitan memahami konsep pengelompokan tanaman.", icon: "🌟", teacher: "Ustadz Iski" },

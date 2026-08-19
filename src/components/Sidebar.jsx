@@ -36,9 +36,9 @@ export default function Sidebar() {
     { label: "Catatan Guru", path: "/daily-notes", icon: BookOpenCheck, color: "text-indigo-500" },
     { label: "Galeri Sekolah", path: "/gallery", icon: Image, color: "text-rose-500" },
     { label: "Pesan Guru", path: "/messages", icon: MessageSquareText, color: "text-sky-600" },
-    { label: "Laporan TP Anak", path: "/reports", icon: FileSpreadsheet, color: "text-emerald-600" }
-  ,
-    { label: "Penyimpanan", path: "/penyimpanan", icon: Database, color: "text-cyan-500" }];
+    { label: "Laporan TP Anak", path: "/reports", icon: FileSpreadsheet, color: "text-emerald-600" },
+    { label: "Penyimpanan", path: "/penyimpanan", icon: Database, color: "text-cyan-500" }
+  ];
 
   if (user.role === 'Admin' || user.role === 'Kepala Sekolah' || user.role === 'Guru' || user.role === 'Guru Kelas') {
     menuItems.push({ label: "Kelola Admin", path: "/admin", icon: ShieldCheck, color: "text-amber-600" });

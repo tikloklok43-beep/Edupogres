@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useSearchParams, useParams } from 'react-router-dom';
 import { FileSpreadsheet, Printer, Download, FileText, CheckCircle2, Share2, ChevronDown, Clock, Filter, CheckSquare, Square, BookOpen, Link as LinkIcon, TrendingUp, Award, Target, Edit3, Save, X, Sparkles } from 'lucide-react';
+import { saveSentReport } from '../utils/reportArchive';
 
 // API base URL
 const API_BASE = (typeof window !== 'undefined' && window.location.origin.startsWith('http') && window.location.port !== '5173')
@@ -291,6 +292,20 @@ export default function Reports({ parentAccess = false }) {
 
     const phone = targetStudent.parentPhone || '6281234567891';
     const message = `Assalamu'alaikum Wr. Wb.\nYth. Bapak/Ibu ${targetStudent.parentName},\n\nBerikut laporan Capaian Tujuan Pembelajaran (TP) ananda *${targetStudent.name}* (${targetStudent.className}) untuk Bab yang sudah dipelajari:\n\n${summaryLines}\n\n📱 *Lihat Laporan Lengkap secara Online:*\n👉 ${parentLink}\n\n_(Klik link di atas untuk melihat laporan perkembangan ananda secara visual & lengkap, langsung dari HP Bapak/Ibu)_\n\nWassalamu'alaikum Wr. Wb.\n-- ${targetStudent.homeroomTeacher || 'Wali Kelas'}`;
+
+    saveSentReport({
+      studentId: targetStudent.id,
+      studentName: targetStudent.name,
+      className: targetStudent.className,
+      nisn: targetStudent.nisn,
+      parentName: targetStudent.parentName,
+      parentPhone: phone,
+      selectedChapters: [...selectedChapters],
+      chapterCount: selectedChapters.length,
+      tpCount: tpData.reduce((sum, s) => sum + s.chapters.reduce((c, ch) => c + ch.tps.length, 0), 0),
+      parentLink,
+      sentBy: targetStudent.homeroomTeacher || 'Wali Kelas'
+    });
 
     window.open(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`, '_blank');
   };

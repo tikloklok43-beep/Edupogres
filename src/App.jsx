@@ -24,6 +24,7 @@ import AdminPanel from './pages/AdminPanel';
 import Reports from './pages/Reports';
 import ParentView from './pages/ParentView';
 import Settings from './pages/Settings';
+import PenyimpananPage from './components/PenyimpananPage';
 
 function ProtectedRoute({ children }) {
   const { user } = useAuth();
@@ -80,6 +81,7 @@ export default function App() {
             {/* Halaman Laporan Bersih untuk Orang Tua via Link — TANPA LOGIN & TANPA MENU */}
             <Route path="/ortu/:studentId" element={<ParentView />} />
             <Route path="/settings" element={<ProtectedRoute><AppLayout><Settings /></AppLayout></ProtectedRoute>} />
+            <Route path="/penyimpanan" element={<ProtectedRoute><AppLayout><PenyimpananPage /></AppLayout></ProtectedRoute>} />
 
             <Route path="*" element={<Navigate to="/login" replace />} />
           </Routes>

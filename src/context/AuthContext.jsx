@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import axios from 'axios';
-import { DEMO_ACCOUNTS, INITIAL_STUDENTS, DEFAULT_SCHEDULE } from '../data/initialData';
+import { DEMO_ACCOUNTS, INITIAL_STUDENTS, DEFAULT_SCHEDULE, INITIAL_ACHIEVEMENTS, buildInitialAchievements } from '../data/initialData';
 import { TP_DATA } from '../data/tpData';
 
 const readStoredValue = (key, fallback) => {
@@ -43,6 +43,23 @@ const migrateScheduleProfile = (schedule) => ({
   })
 });
 
+const migrateAchievements = (achievements) => {
+  if (!Array.isArray(achievements) || achievements.length === 0) {
+    return buildInitialAchievements();
+  }
+  if (achievements.some((item) => item.studentId)) {
+    return achievements;
+  }
+  return buildInitialAchievements();
+};
+
+const syncStudentAchievementCounts = (achievementList, studentList) => {
+  return studentList.map((student) => ({
+    ...student,
+    totalAchievements: achievementList.filter((item) => item.studentId === student.id).length
+  }));
+};
+
 const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
@@ -60,6 +77,17 @@ export const AuthProvider = ({ children }) => {
   });
   const [tpData, setTpData] = useState(() => readStoredValue('eduprogress_tp_data', TP_DATA));
   const [scheduleData, setScheduleData] = useState(() => migrateScheduleProfile(readStoredValue('eduprogress_schedule_data', DEFAULT_SCHEDULE)));
+  const [achievements, setAchievementsState] = useState(() =>
+    migrateAchievements(readStoredValue('eduprogress_achievements', INITIAL_ACHIEVEMENTS))
+  );
+
+  const setAchievements = (updater) => {
+    setAchievementsState((prev) => {
+      const next = typeof updater === 'function' ? updater(prev) : updater;
+      setStudents((currentStudents) => syncStudentAchievementCounts(next, currentStudents));
+      return next;
+    });
+  };
 
   useEffect(() => {
     localStorage.setItem('eduprogress_user', JSON.stringify(user));
@@ -80,6 +108,14 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     localStorage.setItem('eduprogress_schedule_data', JSON.stringify(scheduleData));
   }, [scheduleData]);
+
+  useEffect(() => {
+    localStorage.setItem('eduprogress_achievements', JSON.stringify(achievements));
+  }, [achievements]);
+
+  useEffect(() => {
+    setStudents((currentStudents) => syncStudentAchievementCounts(achievements, currentStudents));
+  }, []);
 
   useEffect(() => {
     if (!students.length) return;
@@ -114,8 +150,10 @@ export const AuthProvider = ({ children }) => {
   };
 
   const resetAllData = () => {
-    setStudents(INITIAL_STUDENTS);
+    const freshAchievements = buildInitialAchievements();
+    setStudents(syncStudentAchievementCounts(freshAchievements, INITIAL_STUDENTS));
     setSelectedStudent(INITIAL_STUDENTS[0]);
+    setAchievementsState(freshAchievements);
     setTpData(TP_DATA);
     setScheduleData(DEFAULT_SCHEDULE);
   };
@@ -134,6 +172,8 @@ export const AuthProvider = ({ children }) => {
       setTpData,
       scheduleData,
       setScheduleData,
+      achievements,
+      setAchievements,
       logout,
       demoAccounts: DEMO_ACCOUNTS,
       resetAllData

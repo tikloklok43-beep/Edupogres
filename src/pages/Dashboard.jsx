@@ -32,8 +32,10 @@ import {
 import { useNavigate } from 'react-router-dom';
 
 export default function Dashboard() {
-  const { selectedStudent, user, tpData } = useAuth();
+  const { selectedStudent, user, tpData, achievements } = useAuth();
   const navigate = useNavigate();
+
+  const totalPrestasi = achievements.filter((item) => item.studentId === selectedStudent.id).length;
 
   const reportTpSummary = Object.values(tpData || {}).reduce((summary, subject) => {
     (subject.chapters || []).forEach((chapter) => {
@@ -150,14 +152,14 @@ export default function Dashboard() {
           </div>
         </GlassCard>
 
-        <GlassCard className="border-l-4 border-l-amber-400">
+        <GlassCard className="border-l-4 border-l-amber-400 cursor-pointer hover:shadow-md transition" onClick={() => navigate('/achievements')}>
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs font-extrabold text-slate-400 uppercase tracking-wider">Total Prestasi</p>
               <h3 className="text-2xl font-black text-slate-800 dark:text-slate-100 mt-1">
-                {selectedStudent.totalAchievements} Penghargaan
+                {totalPrestasi} Penghargaan
               </h3>
-              <p className="text-[10px] text-amber-500 font-bold mt-1">Juara Sains & Tahfidz 🏆</p>
+              <p className="text-[10px] text-amber-500 font-bold mt-1">Klik untuk kelola prestasi 🏆</p>
             </div>
             <div className="w-12 h-12 rounded-2xl bg-amber-100 dark:bg-amber-950/60 text-amber-500 flex items-center justify-center">
               <Trophy className="w-6 h-6" />
