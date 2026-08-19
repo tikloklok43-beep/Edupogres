@@ -29,6 +29,15 @@ const migrateStudentProfile = (student) => {
 const migrateScheduleProfile = (schedule) => ({
   ...schedule,
   teacherMapping: (schedule.teacherMapping || DEFAULT_SCHEDULE.teacherMapping).map((teacher) => {
+    if (teacher.name === 'Bu Nurhayati, S.Pd' || teacher.name === 'Bu Nurhayati') {
+      return {
+        ...teacher,
+        name: 'Ustadz Iski',
+        role: 'Guru Kelas / Wali Kelas',
+        mapel: 'Matematika, B. Indonesia, IPAS, Seni Rupa, Pancasila, B. Arab, PAI Nasional, PAI Lokal, Tahfidz',
+        avatar: 'https://i.pinimg.com/1200x/1d/c1/39/1dc139c14c38e85d8c05f5d250df1743.jpg'
+      };
+    }
     const defaultTeacher = DEFAULT_SCHEDULE.teacherMapping.find((item) => item.name === teacher.name);
     return { ...defaultTeacher, ...teacher, avatar: teacher.avatar || defaultTeacher?.avatar || '' };
   })
