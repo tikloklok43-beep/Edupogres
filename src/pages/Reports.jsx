@@ -253,7 +253,10 @@ export default function Reports({ parentAccess = false }) {
 
   // Include selected chapters in public link (omitted when all chapters selected for clean short URL)
   const parentLink = (() => {
-    const url = new URL(`/ortu/${targetStudent?.id}`, window.location.origin);
+    const origin = window.location.hostname === 'localhost'
+      ? 'https://edupogres.vercel.app'
+      : window.location.origin;
+    const url = new URL(`/ortu/${targetStudent?.id}`, origin);
     const isAllSelected = allChapters.length > 0 && selectedChapters.length === allChapters.length;
     
     if (!isAllSelected) {
@@ -281,17 +284,40 @@ export default function Reports({ parentAccess = false }) {
   const handleShareToParent = () => {
     if (!targetStudent) return;
 
-    // Build summary from selected chapters only
-    const summaryLines = tpData.map(s => {
-      const chapLines = s.chapters.map(chap => {
-        const tpLines = chap.tps.map(t => `    - ${t.text} (${t.status})`).join('\n');
-        return `  📖 *${chap.title}*\n${tpLines}`;
-      }).join('\n');
-      return `📌 *${s.subject}* (${s.teacher}):\n${chapLines}`;
-    }).join('\n\n');
-
     const phone = targetStudent.parentPhone || '6281234567891';
-    const message = `Assalamu'alaikum Wr. Wb.\nYth. Bapak/Ibu ${targetStudent.parentName},\n\nBerikut laporan Capaian Tujuan Pembelajaran (TP) ananda *${targetStudent.name}* (${targetStudent.className}) untuk Bab yang sudah dipelajari:\n\n${summaryLines}\n\n📱 *Lihat Laporan Lengkap secara Online:*\n👉 ${parentLink}\n\n_(Klik link di atas untuk melihat laporan perkembangan ananda secara visual & lengkap, langsung dari HP Bapak/Ibu)_\n\nWassalamu'alaikum Wr. Wb.\n-- ${targetStudent.homeroomTeacher || 'Wali Kelas'}`;
+    const classLabel = (targetStudent.className || 'Kelas 5 SDQ - Madani Al washiyyah')
+      .replace(/^Kelas\s+/i, '')
+      .replace(/\s*-\s*/g, ' ')
+      .replace(/\bwashiyyah\b/i, 'Washiyyah');
+    const teacherName = targetStudent.homeroomTeacher || 'Ustadz Iski';
+
+    const message = `Assalamu'alaikum Warahmatullahi Wabarakatuh.
+
+Yth. Ayah/Bunda dari ananda *${targetStudent.name}*,
+
+Afwan, izin kami menyampaikan *Laporan Capaian Tujuan Pembelajaran (TP) per Bab pada setiap mata pelajaran* ananda *${targetStudent.name}*, peserta didik kelas *${classLabel}*, berdasarkan materi pembelajaran yang telah dipelajari dan capaian yang telah diperoleh selama proses pembelajaran.
+
+Alhamdulillah, berdasarkan hasil pembelajaran yang telah dilaksanakan, ananda menunjukkan *pemahaman yang baik terhadap materi pada berbagai mata pelajaran*. Adapun rincian capaian pembelajaran ananda dapat dilihat pada laporan berikut.
+
+🌐 *Laporan Lengkap Secara Online*
+
+Ayah/Bunda dapat melihat laporan perkembangan dan capaian pembelajaran ananda secara lebih lengkap melalui tautan berikut:
+
+${parentLink}
+
+Kami mengucapkan terima kasih atas perhatian, dukungan, dan kerja sama Ayah/Bunda dalam mendampingi proses belajar ananda. Dukungan dan pendampingan dari Ayah/Bunda merupakan bagian penting dalam membantu ananda mengembangkan potensi dan mencapai hasil belajar yang optimal.
+
+Semoga capaian yang telah diperoleh dapat terus dipertahankan dan ditingkatkan, serta menjadi motivasi bagi ananda untuk senantiasa semangat dalam belajar, mengembangkan potensi diri, meraih prestasi, dan memiliki akhlak yang mulia.
+
+Demikian *Laporan Capaian Tujuan Pembelajaran* ini kami sampaikan. Mohon doa dan dukungan Ayah/Bunda agar proses pendidikan ananda senantiasa diberikan kemudahan dan keberkahan.
+
+Semoga Allah Subhanahu wa Ta'ala senantiasa memberikan kemudahan, keberkahan, dan kesuksesan dalam setiap proses pendidikan ananda.
+
+Wassalamu'alaikum Warahmatullahi Wabarakatuh.
+
+Hormat kami,
+*${teacherName}*
+SDQ Madani Al Washiyyah`;
 
     saveSentReport({
       studentId: targetStudent.id,
