@@ -333,7 +333,9 @@ export default function AdminPanel() {
             key={tab.key}
             onClick={() => setActiveTab(tab.key)}
             className={`px-4 py-2 rounded-2xl text-xs font-extrabold transition ${
-              activeTab === tab.key ? 'bg-amber-500 text-white shadow-md' : 'bg-white dark:bg-slate-900 border text-slate-600'
+              activeTab === tab.key
+                ? 'bg-amber-500 text-white shadow-md'
+                : 'bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'
             }`}
           >
             {tab.label}
@@ -353,7 +355,7 @@ export default function AdminPanel() {
 
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs">
-                <thead className="bg-slate-100 dark:bg-slate-800 text-slate-500 uppercase text-[10px] font-extrabold">
+                <thead className="bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-300 uppercase text-[10px] font-extrabold">
                   <tr>
                     <th className="p-2">Nama</th>
                     <th className="p-2">Kelas</th>
@@ -367,16 +369,16 @@ export default function AdminPanel() {
                     <tr key={student.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/70">
                       <td className="p-2">
                         <div className="flex items-center gap-2 font-bold text-slate-800 dark:text-slate-100">
-                          <img src={student.avatar} alt={student.name} className="w-8 h-8 rounded-full object-cover border border-sky-200" />
+                          <img src={student.avatar} alt={student.name} className="w-8 h-8 rounded-full object-cover border border-sky-200 dark:border-slate-600" />
                           <span>{student.name}</span>
                         </div>
                       </td>
-                      <td className="p-2">{student.className}</td>
-                      <td className="p-2">{student.homeroomTeacher}</td>
-                      <td className="p-2 font-bold text-emerald-600">{student.attendanceRate || 0}%</td>
+                      <td className="p-2 text-slate-700 dark:text-slate-300">{student.className}</td>
+                      <td className="p-2 text-slate-700 dark:text-slate-300">{student.homeroomTeacher}</td>
+                      <td className="p-2 font-bold text-emerald-600 dark:text-emerald-400">{student.attendanceRate || 0}%</td>
                       <td className="p-2 text-right space-x-1">
-                        <button onClick={() => setSelectedStudentId(student.id)} className="p-1.5 text-sky-600 hover:bg-sky-50 rounded"><Edit className="w-3.5 h-3.5" /></button>
-                        <button onClick={() => handleDeleteStudent(student.id)} className="p-1.5 text-rose-600 hover:bg-rose-50 rounded"><Trash2 className="w-3.5 h-3.5" /></button>
+                        <button onClick={() => setSelectedStudentId(student.id)} className="p-1.5 text-sky-600 dark:text-sky-400 hover:bg-sky-50 dark:hover:bg-slate-800 rounded"><Edit className="w-3.5 h-3.5" /></button>
+                        <button onClick={() => handleDeleteStudent(student.id)} className="p-1.5 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-slate-800 rounded"><Trash2 className="w-3.5 h-3.5" /></button>
                       </td>
                     </tr>
                   ))}
@@ -392,26 +394,26 @@ export default function AdminPanel() {
 
             <div className="grid grid-cols-1 gap-3 text-xs">
               <label className="space-y-1">
-                <span className="font-bold text-slate-600">Nama lengkap</span>
+                <span className="font-bold text-slate-600 dark:text-slate-300">Nama lengkap</span>
                 <input value={studentDraft.name} onChange={(e) => updateStudentField('name', e.target.value)} className="w-full rounded-xl border border-slate-200 bg-white px-2.5 py-2.5 text-slate-900 shadow-sm outline-none transition focus:border-sky-300 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100" />
               </label>
               <label className="space-y-1">
-                <span className="font-bold text-slate-600">NISN</span>
+                <span className="font-bold text-slate-600 dark:text-slate-300">NISN</span>
                 <input value={studentDraft.nisn} onChange={(e) => updateStudentField('nisn', e.target.value)} className="w-full rounded-xl border border-slate-200 bg-white px-2.5 py-2.5 text-slate-900 shadow-sm outline-none transition focus:border-sky-300 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100" />
               </label>
               <label className="space-y-1">
-                <span className="font-bold text-slate-600">Kelas</span>
+                <span className="font-bold text-slate-600 dark:text-slate-300">Kelas</span>
                 <input value={studentDraft.className} onChange={(e) => updateStudentField('className', e.target.value)} className="w-full rounded-xl border border-slate-200 bg-white px-2.5 py-2.5 text-slate-900 shadow-sm outline-none transition focus:border-sky-300 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100" />
               </label>
               <label className="space-y-1">
-                <span className="font-bold text-slate-600">Wali kelas</span>
+                <span className="font-bold text-slate-600 dark:text-slate-300">Wali kelas</span>
                 <input value={studentDraft.homeroomTeacher} onChange={(e) => updateStudentField('homeroomTeacher', e.target.value)} className="w-full rounded-xl border border-slate-200 bg-white px-2.5 py-2.5 text-slate-900 shadow-sm outline-none transition focus:border-sky-300 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100" />
               </label>
               <div className="space-y-2">
-                <span className="font-bold text-slate-600">Foto profil siswa</span>
+                <span className="font-bold text-slate-600 dark:text-slate-300">Foto profil siswa</span>
                 <div className="flex items-center gap-3">
-                  <img src={studentDraft.avatar} alt={studentDraft.name || 'Foto siswa'} className="w-16 h-16 rounded-2xl object-cover border-2 border-sky-200" />
-                  <label className="flex-1 cursor-pointer rounded-xl border border-dashed border-sky-300 bg-sky-50 px-3 py-2.5 text-center font-bold text-sky-700 hover:bg-sky-100">
+                  <img src={studentDraft.avatar} alt={studentDraft.name || 'Foto siswa'} className="w-16 h-16 rounded-2xl object-cover border-2 border-sky-200 dark:border-slate-600" />
+                  <label className="flex-1 cursor-pointer rounded-xl border border-dashed border-sky-300 dark:border-sky-700 bg-sky-50 dark:bg-sky-950/30 px-3 py-2.5 text-center font-bold text-sky-700 dark:text-sky-300 hover:bg-sky-100 dark:hover:bg-sky-900/40 transition">
                     Pilih foto dari perangkat
                     <input type="file" accept="image/*" onChange={handleStudentImageChange} className="sr-only" />
                   </label>
@@ -419,39 +421,39 @@ export default function AdminPanel() {
                 <p className="text-[10px] text-slate-400">Foto akan diperkecil otomatis dan tersimpan di browser saat data siswa disimpan.</p>
               </div>
               <label className="space-y-1">
-                <span className="font-bold text-slate-600">Nama orang tua</span>
+                <span className="font-bold text-slate-600 dark:text-slate-300">Nama orang tua</span>
                 <input value={studentDraft.parentName} onChange={(e) => updateStudentField('parentName', e.target.value)} className="w-full rounded-xl border border-slate-200 bg-white px-2.5 py-2.5 text-slate-900 shadow-sm outline-none transition focus:border-sky-300 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100" />
               </label>
               <label className="space-y-1">
-                <span className="font-bold text-slate-600">Nomor WA orang tua</span>
+                <span className="font-bold text-slate-600 dark:text-slate-300">Nomor WA orang tua</span>
                 <input value={studentDraft.parentPhone} onChange={(e) => updateStudentField('parentPhone', e.target.value)} className="w-full rounded-xl border border-slate-200 bg-white px-2.5 py-2.5 text-slate-900 shadow-sm outline-none transition focus:border-sky-300 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100" />
               </label>
               <label className="space-y-1">
-                <span className="font-bold text-slate-600">Email orang tua</span>
+                <span className="font-bold text-slate-600 dark:text-slate-300">Email orang tua</span>
                 <input value={studentDraft.parentEmail} onChange={(e) => updateStudentField('parentEmail', e.target.value)} className="w-full rounded-xl border border-slate-200 bg-white px-2.5 py-2.5 text-slate-900 shadow-sm outline-none transition focus:border-sky-300 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100" />
               </label>
               <div className="grid grid-cols-2 gap-3">
                 <label className="space-y-1">
-                  <span className="font-bold text-slate-600">Kehadiran %</span>
+                  <span className="font-bold text-slate-600 dark:text-slate-300">Kehadiran %</span>
                   <input type="number" value={studentDraft.attendanceRate} onChange={(e) => updateStudentField('attendanceRate', Number(e.target.value))} className="w-full rounded-xl border border-slate-200 bg-white px-2.5 py-2.5 text-slate-900 shadow-sm outline-none transition focus:border-sky-300 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100" />
                 </label>
                 <label className="space-y-1">
-                  <span className="font-bold text-slate-600">Nilai rata-rata</span>
+                  <span className="font-bold text-slate-600 dark:text-slate-300">Nilai rata-rata</span>
                   <input type="number" value={studentDraft.averageScore} onChange={(e) => updateStudentField('averageScore', Number(e.target.value))} className="w-full rounded-xl border border-slate-200 bg-white px-2.5 py-2.5 text-slate-900 shadow-sm outline-none transition focus:border-sky-300 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100" />
                 </label>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <label className="space-y-1">
-                  <span className="font-bold text-slate-600">Progress %</span>
+                  <span className="font-bold text-slate-600 dark:text-slate-300">Progress %</span>
                   <input type="number" value={studentDraft.overallProgress} onChange={(e) => updateStudentField('overallProgress', Number(e.target.value))} className="w-full rounded-xl border border-slate-200 bg-white px-2.5 py-2.5 text-slate-900 shadow-sm outline-none transition focus:border-sky-300 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100" />
                 </label>
                 <label className="space-y-1">
-                  <span className="font-bold text-slate-600">Prestasi</span>
+                  <span className="font-bold text-slate-600 dark:text-slate-300">Prestasi</span>
                   <input type="number" value={studentDraft.totalAchievements} onChange={(e) => updateStudentField('totalAchievements', Number(e.target.value))} className="w-full rounded-xl border border-slate-200 bg-white px-2.5 py-2.5 text-slate-900 shadow-sm outline-none transition focus:border-sky-300 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100" />
                 </label>
               </div>
               <label className="space-y-1">
-                <span className="font-bold text-slate-600">Hafalan / catatan</span>
+                <span className="font-bold text-slate-600 dark:text-slate-300">Hafalan / catatan</span>
                 <input value={studentDraft.totalMemorization} onChange={(e) => updateStudentField('totalMemorization', e.target.value)} className="w-full rounded-xl border border-slate-200 bg-white px-2.5 py-2.5 text-slate-900 shadow-sm outline-none transition focus:border-sky-300 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100" />
               </label>
             </div>
@@ -476,29 +478,41 @@ export default function AdminPanel() {
 
           <table className="w-full text-left text-[10px] border-collapse">
             <thead>
-              <tr className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-200 font-extrabold">
-                <th className="p-2 border">No</th>
-                <th className="p-2 border">Waktu</th>
-                <th className="p-2 border">Durasi</th>
-                <th className="p-2 border">Senin</th>
-                <th className="p-2 border">Selasa</th>
-                <th className="p-2 border">Rabu</th>
-                <th className="p-2 border">Kamis</th>
-                <th className="p-2 border">Jumat</th>
+              <tr className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-200 font-extrabold border-slate-200 dark:border-slate-700">
+                <th className="p-2 border border-slate-200 dark:border-slate-700">No</th>
+                <th className="p-2 border border-slate-200 dark:border-slate-700">Waktu</th>
+                <th className="p-2 border border-slate-200 dark:border-slate-700">Durasi</th>
+                <th className="p-2 border border-slate-200 dark:border-slate-700">Senin</th>
+                <th className="p-2 border border-slate-200 dark:border-slate-700">Selasa</th>
+                <th className="p-2 border border-slate-200 dark:border-slate-700">Rabu</th>
+                <th className="p-2 border border-slate-200 dark:border-slate-700">Kamis</th>
+                <th className="p-2 border border-slate-200 dark:border-slate-700">Jumat</th>
               </tr>
             </thead>
             <tbody>
               {(scheduleDraft.timeSlots || []).map((row, rowIndex) => (
                 <tr key={row.no ?? rowIndex} className="align-top">
-                  <td className="p-1 border font-bold text-slate-400">{row.no}</td>
-                  <td className="p-1 border"><input value={row.time || ''} onChange={(e) => updateScheduleCell(rowIndex, 'time', e.target.value)} className="w-full min-w-[90px] rounded border border-slate-200 p-1.5" /></td>
-                  <td className="p-1 border"><input value={row.dur || ''} onChange={(e) => updateScheduleCell(rowIndex, 'dur', e.target.value)} className="w-full min-w-[60px] rounded border border-slate-200 p-1.5" /></td>
+                  <td className="p-1 border border-slate-200 dark:border-slate-700 font-bold text-slate-500 dark:text-slate-400">{row.no}</td>
+                  <td className="p-1 border border-slate-200 dark:border-slate-700">
+                    <input
+                      value={row.time || ''}
+                      onChange={(e) => updateScheduleCell(rowIndex, 'time', e.target.value)}
+                      className="w-full min-w-[90px] rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 p-1.5 outline-none focus:ring-1 focus:ring-sky-400"
+                    />
+                  </td>
+                  <td className="p-1 border border-slate-200 dark:border-slate-700">
+                    <input
+                      value={row.dur || ''}
+                      onChange={(e) => updateScheduleCell(rowIndex, 'dur', e.target.value)}
+                      className="w-full min-w-[60px] rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 p-1.5 outline-none focus:ring-1 focus:ring-sky-400"
+                    />
+                  </td>
                   {['senin', 'selasa', 'rabu', 'kamis', 'jumat'].map((day) => (
-                    <td key={day} className="p-1 border">
+                    <td key={day} className="p-1 border border-slate-200 dark:border-slate-700">
                       <input
                         value={row[day] || ''}
                         onChange={(e) => updateScheduleCell(rowIndex, day, e.target.value)}
-                        className="w-full min-w-[90px] rounded border border-slate-200 p-1.5"
+                        className="w-full min-w-[90px] rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 p-1.5 outline-none focus:ring-1 focus:ring-sky-400"
                       />
                     </td>
                   ))}
@@ -517,11 +531,11 @@ export default function AdminPanel() {
             <h3 className="text-base font-extrabold text-slate-800 dark:text-slate-100">Foto Profil Guru Pengajar</h3>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
               {(scheduleDraft.teacherMapping || []).map((teacher, index) => (
-                <div key={`${teacher.name}-${index}`} className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3">
+                <div key={`${teacher.name}-${index}`} className="flex items-center gap-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/80 p-3">
                   <img src={teacher.avatar} alt={teacher.name} className="w-14 h-14 rounded-full object-cover border-2 border-amber-300" />
                   <div className="min-w-0 flex-1">
-                    <p className="text-xs font-extrabold truncate">{teacher.name}</p>
-                    <label className="inline-block mt-1 cursor-pointer text-[10px] font-bold text-sky-600 hover:text-sky-800">
+                    <p className="text-xs font-extrabold truncate text-slate-800 dark:text-slate-100">{teacher.name}</p>
+                    <label className="inline-block mt-1 cursor-pointer text-[10px] font-bold text-sky-600 dark:text-sky-400 hover:text-sky-700">
                       Ganti foto
                       <input type="file" accept="image/*" onChange={(event) => handleTeacherImageChange(index, event)} className="sr-only" />
                     </label>
@@ -540,8 +554,13 @@ export default function AdminPanel() {
             <h3 className="text-base font-extrabold text-slate-800 dark:text-slate-100">Mapel TP</h3>
 
             <div className="flex gap-2">
-              <input value={newSubjectKey} onChange={(e) => setNewSubjectKey(e.target.value)} placeholder="Nama mapel baru" className="flex-1 rounded-xl border border-slate-200 p-2.5 text-xs" />
-              <button onClick={addSubject} className="px-3 py-2 bg-sky-500 text-white font-extrabold text-xs rounded-xl flex items-center gap-1">
+              <input
+                value={newSubjectKey}
+                onChange={(e) => setNewSubjectKey(e.target.value)}
+                placeholder="Nama mapel baru"
+                className="flex-1 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 p-2.5 text-xs outline-none focus:ring-1 focus:ring-sky-400"
+              />
+              <button onClick={addSubject} className="px-3 py-2 bg-sky-500 text-white font-extrabold text-xs rounded-xl flex items-center gap-1 shadow">
                 <Plus className="w-3.5 h-3.5" /> Tambah
               </button>
             </div>
@@ -552,7 +571,9 @@ export default function AdminPanel() {
                   key={key}
                   onClick={() => setSelectedSubjectKey(key)}
                   className={`w-full text-left px-3 py-2 rounded-xl border text-xs font-bold transition ${
-                    selectedSubjectKey === key ? 'bg-amber-500 text-white border-amber-500' : 'bg-slate-50 border-slate-200 text-slate-700'
+                    selectedSubjectKey === key
+                      ? 'bg-amber-500 text-white border-amber-500 shadow-sm'
+                      : 'bg-slate-50 dark:bg-slate-800/80 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700'
                   }`}
                 >
                   {key}
@@ -568,21 +589,29 @@ export default function AdminPanel() {
               <div className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   <label className="space-y-1 text-xs">
-                    <span className="font-bold text-slate-600">Nama mapel</span>
-                    <input value={tpDraft.subject || ''} onChange={(e) => setTpDraft((prev) => ({ ...prev, subject: e.target.value }))} className="w-full rounded-xl border border-slate-200 p-2.5" />
+                    <span className="font-bold text-slate-600 dark:text-slate-300">Nama mapel</span>
+                    <input
+                      value={tpDraft.subject || ''}
+                      onChange={(e) => setTpDraft((prev) => ({ ...prev, subject: e.target.value }))}
+                      className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 p-2.5 outline-none focus:ring-1 focus:ring-sky-400"
+                    />
                   </label>
                   <label className="space-y-1 text-xs">
-                    <span className="font-bold text-slate-600">Guru pengampu</span>
-                    <input value={tpDraft.teacher || ''} onChange={(e) => setTpDraft((prev) => ({ ...prev, teacher: e.target.value }))} className="w-full rounded-xl border border-slate-200 p-2.5" />
+                    <span className="font-bold text-slate-600 dark:text-slate-300">Guru pengampu</span>
+                    <input
+                      value={tpDraft.teacher || ''}
+                      onChange={(e) => setTpDraft((prev) => ({ ...prev, teacher: e.target.value }))}
+                      className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 p-2.5 outline-none focus:ring-1 focus:ring-sky-400"
+                    />
                   </label>
                 </div>
 
                 {(tpDraft.chapters || []).map((chapter, chapterIndex) => (
-                  <div key={`${selectedSubjectKey}-${chapterIndex}`} className="rounded-2xl border border-slate-200 p-3 space-y-3">
+                  <div key={`${selectedSubjectKey}-${chapterIndex}`} className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/40 p-3 space-y-3">
                     <input
                       value={chapter.chapter || ''}
                       onChange={(e) => updateTpChapter(chapterIndex, 'chapter', e.target.value)}
-                      className="w-full rounded-xl border border-slate-200 p-2.5 text-xs font-bold"
+                      className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 p-2.5 text-xs font-bold outline-none focus:ring-1 focus:ring-sky-400"
                     />
 
                     <div className="space-y-2">
@@ -591,21 +620,26 @@ export default function AdminPanel() {
                           <input
                             value={line}
                             onChange={(e) => updateTpLine(chapterIndex, tpIndex, e.target.value)}
-                            className="flex-1 rounded-xl border border-slate-200 p-2.5 text-[11px]"
+                            className="flex-1 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 p-2.5 text-[11px] outline-none focus:ring-1 focus:ring-sky-400"
                           />
-                          <button onClick={() => removeTpLine(chapterIndex, tpIndex)} className="p-2 text-rose-600 hover:bg-rose-50 rounded"><Trash2 className="w-3.5 h-3.5" /></button>
+                          <button
+                            onClick={() => removeTpLine(chapterIndex, tpIndex)}
+                            className="p-2 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded transition"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
                         </div>
                       ))}
                     </div>
 
                     <div className="flex gap-2 justify-end">
-                      <button onClick={() => addTpLine(chapterIndex)} className="px-3 py-2 bg-sky-500 text-white text-[10px] font-extrabold rounded-xl">Tambah TP</button>
+                      <button onClick={() => addTpLine(chapterIndex)} className="px-3 py-2 bg-sky-500 text-white text-[10px] font-extrabold rounded-xl shadow">Tambah TP</button>
                     </div>
                   </div>
                 ))}
 
                 <div className="flex items-center justify-between">
-                  <button onClick={addTpChapter} className="px-3 py-2 bg-amber-500 text-slate-900 font-extrabold text-xs rounded-xl">+ Tambah Bab</button>
+                  <button onClick={addTpChapter} className="px-3 py-2 bg-amber-500 text-slate-900 font-extrabold text-xs rounded-xl shadow">+ Tambah Bab</button>
                   <button onClick={saveTpSubject} className="px-4 py-2 bg-emerald-500 text-white font-extrabold text-xs rounded-2xl flex items-center gap-2 shadow">
                     <Save className="w-4 h-4" /> Simpan TP
                   </button>
