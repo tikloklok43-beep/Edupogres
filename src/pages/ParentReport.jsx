@@ -73,6 +73,16 @@ export default function ParentReport({ student, selectedChapters = null }) {
         }
       })
       .catch(() => {});
+
+    // Fetch latest note overrides from backend server
+    fetch(`${API_BASE}/api/tp-report-notes/${student.id}`)
+      .then(res => res.json())
+      .then(json => {
+        if (json && json.data) {
+          setTpNoteOverrides(prev => ({ ...prev, ...json.data }));
+        }
+      })
+      .catch(() => {});
   }, [student?.id]);
 
   if (!student) return null;
@@ -317,14 +327,10 @@ export default function ParentReport({ student, selectedChapters = null }) {
 
                                   </div>
                                 </div>
-                                {(tp.status === 'Paham' || tp.status === 'Cukup Paham' || tp.status === 'Belum Paham') && (
-                                  <div className="rounded-2xl border border-amber-200 bg-amber-50 p-3 text-slate-800">
-                                    <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-amber-700">Catatan Guru</p>
-                                    {tp.note ? (
-                                      <p className="mt-2 text-[11px] italic leading-relaxed">"{tp.note}"</p>
-                                    ) : (
-                                      <p className="mt-2 text-[11px] text-slate-500 italic">Belum ada catatan guru untuk status ini.</p>
-                                    )}
+                                {tp.note && tp.note.trim() !== '' && (
+                                  <div className="rounded-2xl border border-amber-200 bg-amber-50/80 p-3 text-slate-800">
+                                    <p className="text-[10px] font-bold uppercase tracking-[0.25em] text-amber-700">📝 Catatan Guru</p>
+                                    <p className="mt-1.5 text-[11px] italic leading-relaxed text-slate-700">"{tp.note}"</p>
                                   </div>
                                 )}
                               </div>

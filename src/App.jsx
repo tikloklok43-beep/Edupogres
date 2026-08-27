@@ -2,6 +2,7 @@ import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
+import { QuizProvider } from './context/QuizContext';
 
 import Navbar from './components/Navbar';
 import Sidebar from './components/Sidebar';
@@ -25,6 +26,8 @@ import Reports from './pages/Reports';
 import ParentView from './pages/ParentView';
 import Settings from './pages/Settings';
 import PenyimpananPage from './components/PenyimpananPage';
+import QuizPage from './pages/QuizPage';
+import JoinPage from './pages/JoinPage';
 
 function ProtectedRoute({ children }) {
   const { user } = useAuth();
@@ -58,8 +61,11 @@ export default function App() {
     <ThemeProvider>
       <AuthProvider>
         <BrowserRouter>
-          <Routes>
+          <QuizProvider>
+            <Routes>
             <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
+
+            <Route path="/join" element={<JoinPage />} />
 
             <Route path="/" element={<ProtectedRoute><AppLayout><Dashboard /></AppLayout></ProtectedRoute>} />
             <Route path="/schedule" element={<ProtectedRoute><AppLayout><SchedulePage /></AppLayout></ProtectedRoute>} />
@@ -82,9 +88,11 @@ export default function App() {
             <Route path="/ortu/:studentId" element={<ParentView />} />
             <Route path="/settings" element={<ProtectedRoute><AppLayout><Settings /></AppLayout></ProtectedRoute>} />
             <Route path="/penyimpanan" element={<ProtectedRoute><AppLayout><PenyimpananPage /></AppLayout></ProtectedRoute>} />
+            <Route path="/quiz" element={<ProtectedRoute><AppLayout><QuizPage /></AppLayout></ProtectedRoute>} />
 
             <Route path="*" element={<Navigate to="/login" replace />} />
-          </Routes>
+            </Routes>
+          </QuizProvider>
         </BrowserRouter>
       </AuthProvider>
     </ThemeProvider>

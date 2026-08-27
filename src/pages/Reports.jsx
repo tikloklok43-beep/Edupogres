@@ -87,6 +87,7 @@ export default function Reports({ parentAccess = false }) {
   const [tpNotesByStudent, setTpNotesByStudent] = useState({});
   const [prePostByStudent, setPrePostByStudent] = useState({});
   const [editingPrePost, setEditingPrePost] = useState(null); // { chapTitle, preTest, postTest }
+  const [activeNoteKey, setActiveNoteKey] = useState(null); // Key of TP currently having its note input open
   const [openDropdown, setOpenDropdown] = useState(null);
   const [showFilterPanel, setShowFilterPanel] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
@@ -147,6 +148,7 @@ export default function Reports({ parentAccess = false }) {
       localNotes = notesRaw ? JSON.parse(notesRaw) : {};
     } catch (e) { /* ignore */ }
 
+    // Fetch status overrides
     fetch(`${API_BASE}/api/tp-report-status/${studentKey}`)
       .then(res => res.json())
       .then(json => {
@@ -155,9 +157,11 @@ export default function Reports({ parentAccess = false }) {
         const merged = { ...localOverrides, ...serverOverrides };
         setTpStatusByStudent(prev => ({
           ...prev,
-          [studentKey]: { data: buildTpData(merged, localNotes), overrides: merged }
+          [studentKey]: {
+            data: buildTpData(merged, (tpNotesByStudent[studentKey] || localNotes)),
+            overrides: merged
+          }
         }));
-        setTpNotesByStudent(prev => ({ ...prev, [studentKey]: localNotes }));
       })
       .catch(() => {
         if (!cancelled) {
@@ -165,6 +169,27 @@ export default function Reports({ parentAccess = false }) {
             ...prev,
             [studentKey]: { data: buildTpData(localOverrides, localNotes), overrides: localOverrides }
           }));
+        }
+      });
+
+    // Fetch note overrides
+    fetch(`${API_BASE}/api/tp-report-notes/${studentKey}`)
+      .then(res => res.json())
+      .then(json => {
+        if (cancelled) return;
+        const serverNotes = (json && json.data) || {};
+        const mergedNotes = { ...localNotes, ...serverNotes };
+        setTpNotesByStudent(prev => ({ ...prev, [studentKey]: mergedNotes }));
+        setTpStatusByStudent(prev => ({
+          ...prev,
+          [studentKey]: {
+            data: buildTpData((prev[studentKey] || {}).overrides || localOverrides, mergedNotes),
+            overrides: (prev[studentKey] || {}).overrides || localOverrides
+          }
+        }));
+      })
+      .catch(() => {
+        if (!cancelled) {
           setTpNotesByStudent(prev => ({ ...prev, [studentKey]: localNotes }));
         }
       });
@@ -249,6 +274,11 @@ export default function Reports({ parentAccess = false }) {
     }));
 
     try { localStorage.setItem(`tpNotes_${key}`, JSON.stringify(newNotes)); } catch (e) { }
+    fetch(`${API_BASE}/api/tp-report-notes/${key}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tpText, note: noteValue })
+    }).catch(() => { });
   };
 
   // Include selected chapters in public link (omitted when all chapters selected for clean short URL)
@@ -682,23 +712,82 @@ SDQ Madani Al Washiyyah`;
                                     <Award className="w-3 h-3 text-purple-500" /> +{tpPoints} Pt
                                   </span>
                                 )}
+
+                                {/* Teacher mode optional note trigger */}
+                                {!isParentView && (
+                                  <button
+                                    onClick={() => setActiveNoteKey(activeNoteKey === `${chap.title}__${tp.text}` ? null : `${chap.title}__${tp.text}`)}
+                                    className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold cursor-pointer transition ${
+                                      tp.note && tp.note.trim() !== ''
+                                        ? 'bg-amber-100 dark:bg-amber-900/60 text-amber-800 dark:text-amber-200 border border-amber-300 dark:border-amber-700'
+                                        : 'bg-slate-100 hover:bg-slate-200/80 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700'
+                                    }`}
+                                    title="Klik untuk menambah atau mengedit catatan guru"
+                                  >
+                                    <Edit3 className="w-2.5 h-2.5" />
+                                    {tp.note && tp.note.trim() !== '' ? 'Edit Catatan' : '+ Catatan Guru'}
+                                  </button>
+                                )}
                               </div>
                             </div>
                           </div>
 
-                          {shouldShowTeacherNote(tp.status) && (
-                            <div className="rounded-2xl border border-amber-200 bg-amber-50 dark:bg-amber-950/30 p-3 text-slate-700 dark:text-amber-100">
-                              <div className="flex items-center justify-between gap-2 mb-2">
-                                <span className="text-[10px] font-black uppercase tracking-[0.25em] text-amber-700">Catatan Guru</span>
+                          {/* Catatan Guru Display & Editor */}
+                          {isParentView ? (
+                            // Parent View: HANYA tampil jika ADA catatan (bersih tanpa catatan kosong)
+                            tp.note && tp.note.trim() !== '' && (
+                              <div className="rounded-2xl border border-amber-200 bg-amber-50/80 dark:bg-amber-950/30 p-3 text-slate-700 dark:text-amber-100">
+                                <div className="flex items-center gap-1.5 mb-1">
+                                  <span className="text-[10px] font-black uppercase tracking-[0.25em] text-amber-700 dark:text-amber-400">📝 Catatan Guru</span>
+                                </div>
+                                <p className="text-xs italic leading-relaxed text-slate-800 dark:text-amber-100">"{tp.note}"</p>
                               </div>
-                              <textarea
-                                value={tp.note || ''}
-                                onChange={(e) => handleNoteChange(tp.text, e.target.value)}
-                                rows={3}
-                                placeholder="Tuliskan masukan atau saran untuk TP ini..."
-                                className="w-full resize-none rounded-2xl border border-amber-300 bg-white dark:bg-slate-900 px-3 py-2 text-xs text-slate-700 dark:text-slate-100"
-                              />
-                            </div>
+                            )
+                          ) : (
+                            // Teacher View: Tampil jika sedang diedit ATAU sudah ada isinya
+                            (activeNoteKey === `${chap.title}__${tp.text}` || (tp.note && tp.note.trim() !== '')) && (
+                              <div className="rounded-2xl border border-amber-200 bg-amber-50/70 dark:bg-amber-950/30 p-3 text-slate-700 dark:text-amber-100 space-y-2">
+                                <div className="flex items-center justify-between gap-2">
+                                  <span className="text-[10px] font-black uppercase tracking-[0.25em] text-amber-700 dark:text-amber-400 flex items-center gap-1">
+                                    📝 Catatan Guru (Opsional)
+                                  </span>
+                                  <div className="flex items-center gap-1">
+                                    {tp.note && (
+                                      <button
+                                        onClick={() => {
+                                          handleNoteChange(tp.text, '');
+                                          if (activeNoteKey === `${chap.title}__${tp.text}`) {
+                                            setActiveNoteKey(null);
+                                          }
+                                        }}
+                                        className="text-[10px] font-bold text-rose-600 hover:text-rose-700 px-2 py-0.5 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/40 transition flex items-center gap-1"
+                                        title="Hapus catatan ini"
+                                      >
+                                        <X className="w-3 h-3" /> Hapus
+                                      </button>
+                                    )}
+                                    <button
+                                      onClick={() => setActiveNoteKey(activeNoteKey === `${chap.title}__${tp.text}` ? null : `${chap.title}__${tp.text}`)}
+                                      className="text-[10px] font-bold text-slate-500 hover:text-slate-700 px-2 py-0.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+                                    >
+                                      {activeNoteKey === `${chap.title}__${tp.text}` ? 'Tutup Form' : 'Ubah'}
+                                    </button>
+                                  </div>
+                                </div>
+                                {activeNoteKey === `${chap.title}__${tp.text}` ? (
+                                  <textarea
+                                    value={tp.note || ''}
+                                    onChange={(e) => handleNoteChange(tp.text, e.target.value)}
+                                    rows={2}
+                                    placeholder="Tuliskan masukan atau saran untuk TP ini (opsional)..."
+                                    className="w-full resize-none rounded-xl border border-amber-300 bg-white dark:bg-slate-900 px-3 py-2 text-xs text-slate-700 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-amber-400"
+                                    autoFocus
+                                  />
+                                ) : (
+                                  <p className="text-xs italic leading-relaxed text-slate-800 dark:text-amber-100">"{tp.note}"</p>
+                                )}
+                              </div>
+                            )
                           )}
                         </div>
                       );

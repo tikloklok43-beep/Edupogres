@@ -16,6 +16,7 @@ import {
   ShieldCheck,
   Database,
   ClipboardList,
+  Gamepad2,
   Settings,
   LogOut
 } from 'lucide-react';
@@ -30,6 +31,7 @@ export default function Sidebar() {
     { label: "Perkembangan Belajar", path: "/learning-progress", icon: TrendingUp, color: "text-emerald-500" },
     { label: "Capaian Pembelajaran", path: "/learning-outcomes", icon: Target, color: "text-amber-600" },
     { label: "Asesmen", path: "/assessment", icon: FileCheck2, color: "text-purple-500" },
+    { label: "QuizJuara", path: "/quiz", icon: Gamepad2, color: "text-rose-500" },
     { label: "Portofolio Murid", path: "/portfolio", icon: FolderKanban, color: "text-pink-500" },
     { label: "Prestasi Siswa", path: "/achievements", icon: Trophy, color: "text-yellow-500" },
     { label: "Kehadiran", path: "/attendance", icon: CalendarCheck, color: "text-teal-500" },

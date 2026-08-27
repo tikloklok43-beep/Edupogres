@@ -5,6 +5,10 @@ import fs from 'fs';
 import jwt from 'jsonwebtoken';
 import multer from 'multer';
 import { fileURLToPath } from 'url';
+import { createServer } from 'http';
+import { Server } from 'socket.io';
+import quizRoutes from './quizRoutes.js';
+import { initQuizSocket } from './quizSocket.js';
 
 import {
   INITIAL_STUDENTS,
@@ -64,7 +68,8 @@ const db = {
   gallery: [...INITIAL_GALLERY],
   messages: [...INITIAL_MESSAGES],
   demoAccounts: [...DEMO_ACCOUNTS],
-  tpReportStatus: {} // per-student TP status overrides: { [studentId]: { [tpText]: status } }
+  tpReportStatus: {}, // per-student TP status overrides: { [studentId]: { [tpText]: status } }
+  tpReportNotes: {}  // per-student TP notes overrides: { [studentId]: { [tpText]: note } }
 };
 
 // Auth middleware
@@ -337,6 +342,34 @@ app.post('/api/tp-report-status/:studentId', (req, res) => {
   res.json({ success: true, data: db.tpReportStatus[req.params.studentId] });
 });
 
-app.listen(PORT, () => {
+// 14. TP Report Notes Endpoint (per-student)
+app.get('/api/tp-report-notes/:studentId', (req, res) => {
+  const noteMap = db.tpReportNotes[req.params.studentId] || {};
+  res.json({ success: true, data: noteMap });
+});
+
+app.post('/api/tp-report-notes/:studentId', (req, res) => {
+  const { tpText, note } = req.body;
+  if (!db.tpReportNotes[req.params.studentId]) {
+    db.tpReportNotes[req.params.studentId] = {};
+  }
+  if (tpText) {
+    db.tpReportNotes[req.params.studentId][tpText] = note || '';
+  }
+  res.json({ success: true, data: db.tpReportNotes[req.params.studentId] });
+});
+
+app.use('/api/quiz', quizRoutes);
+
+const httpServer = createServer(app);
+const io = new Server(httpServer, {
+  cors: { origin: '*', methods: ['GET', 'POST'] }
+});
+
+const QUIZ_DATA_PATH = path.join(__dirname, 'data', 'quizData.json');
+initQuizSocket(io, QUIZ_DATA_PATH);
+
+httpServer.listen(PORT, () => {
   console.log(`🚀 Server EduProgress running on http://localhost:${PORT}`);
+  console.log(`🎮 QuizJuara Socket.IO aktif di /quiz namespace`);
 });
