@@ -281,7 +281,7 @@ export default function Reports({ parentAccess = false }) {
     }).catch(() => { });
   };
 
-  // Include selected chapters in public link (omitted when all chapters selected for clean short URL)
+  // Include selected chapters and teacher notes in public link
   const parentLink = (() => {
     const origin = window.location.hostname === 'localhost'
       ? 'https://edupogres.vercel.app'
@@ -301,6 +301,33 @@ export default function Reports({ parentAccess = false }) {
         url.searchParams.set('bab', JSON.stringify(selectedChapters));
       }
     }
+
+    // Encode non-empty teacher notes so they can be viewed on any device
+    const activeNotes = Object.fromEntries(
+      Object.entries(rawNotes || {}).filter(([_, v]) => v && typeof v === 'string' && v.trim() !== '')
+    );
+    if (Object.keys(activeNotes).length > 0) {
+      try {
+        const jsonStr = JSON.stringify(activeNotes);
+        const encoded = btoa(encodeURIComponent(jsonStr));
+        url.searchParams.set('nt', encoded);
+      } catch (e) {
+        url.searchParams.set('notes', JSON.stringify(activeNotes));
+      }
+    }
+
+    // Encode custom status overrides if any
+    const currentOverrides = (tpStatusByStudent[studentKey] || {}).overrides || {};
+    if (Object.keys(currentOverrides).length > 0) {
+      try {
+        const jsonStr = JSON.stringify(currentOverrides);
+        const encoded = btoa(encodeURIComponent(jsonStr));
+        url.searchParams.set('st', encoded);
+      } catch (e) {
+        url.searchParams.set('status', JSON.stringify(currentOverrides));
+      }
+    }
+
     return url.toString();
   })();
 

@@ -37,9 +37,39 @@ export default function ParentReport({ student, selectedChapters = null }) {
   const [prePostOverrides, setPrePostOverrides] = useState({});
   const [expandedSubjects, setExpandedSubjects] = useState({});
 
-  // Load saved statuses, teacher notes, and pre/post test scores from localStorage & backend API
+  // Load saved statuses, teacher notes, and pre/post test scores from URL params, localStorage & backend API
   useEffect(() => {
     if (!student?.id) return;
+
+    let urlStatus = {};
+    let urlNotes = {};
+
+    // Decode URL parameters (allows parents on any device/phone to see teacher's notes & statuses)
+    if (typeof window !== 'undefined') {
+      try {
+        const searchParams = new URLSearchParams(window.location.search);
+        const ntParam = searchParams.get('nt') || searchParams.get('notes');
+        const stParam = searchParams.get('st') || searchParams.get('status');
+
+        if (ntParam) {
+          try {
+            const decodedStr = decodeURIComponent(atob(ntParam));
+            urlNotes = JSON.parse(decodedStr);
+          } catch (e) {
+            try { urlNotes = JSON.parse(ntParam); } catch (e2) { }
+          }
+        }
+
+        if (stParam) {
+          try {
+            const decodedStr = decodeURIComponent(atob(stParam));
+            urlStatus = JSON.parse(decodedStr);
+          } catch (e) {
+            try { urlStatus = JSON.parse(stParam); } catch (e2) { }
+          }
+        }
+      } catch (e) { /* ignore */ }
+    }
 
     let localStatus = {};
     let localNotes = {};
@@ -60,26 +90,26 @@ export default function ParentReport({ student, selectedChapters = null }) {
       if (rawPrePost) localPrePost = JSON.parse(rawPrePost);
     } catch (e) { /* ignore */ }
 
-    setTpStatusOverrides(localStatus);
-    setTpNoteOverrides(localNotes);
+    setTpStatusOverrides({ ...localStatus, ...urlStatus });
+    setTpNoteOverrides({ ...localNotes, ...urlNotes });
     setPrePostOverrides(localPrePost);
 
-    // Fetch latest status overrides from backend server
+    // Fetch latest status overrides from backend server if available
     fetch(`${API_BASE}/api/tp-report-status/${student.id}`)
       .then(res => res.json())
       .then(json => {
         if (json && json.data) {
-          setTpStatusOverrides(prev => ({ ...prev, ...json.data }));
+          setTpStatusOverrides(prev => ({ ...prev, ...json.data, ...urlStatus }));
         }
       })
       .catch(() => {});
 
-    // Fetch latest note overrides from backend server
+    // Fetch latest note overrides from backend server if available
     fetch(`${API_BASE}/api/tp-report-notes/${student.id}`)
       .then(res => res.json())
       .then(json => {
         if (json && json.data) {
-          setTpNoteOverrides(prev => ({ ...prev, ...json.data }));
+          setTpNoteOverrides(prev => ({ ...prev, ...json.data, ...urlNotes }));
         }
       })
       .catch(() => {});
