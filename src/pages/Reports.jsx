@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { useSearchParams, useParams } from 'react-router-dom';
 import { FileSpreadsheet, Printer, Download, FileText, CheckCircle2, Share2, ChevronDown, Clock, Filter, CheckSquare, Square, BookOpen, Link as LinkIcon, TrendingUp, Award, Target, Edit3, Save, X, Sparkles } from 'lucide-react';
 import { saveSentReport } from '../utils/reportArchive';
+import { saveReportToCloud, fetchReportFromCloud } from '../utils/cloudSync';
 
 // API base URL
 const API_BASE = (typeof window !== 'undefined' && window.location.origin.startsWith('http') && window.location.port !== '5173')
@@ -278,6 +279,7 @@ export default function Reports({ parentAccess = false }) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ tpText, status: newStatus })
     }).catch(() => { });
+    saveReportToCloud(key, { notes: currentNotes, status: newOverrides, selectedChapters });
   };
 
   const handleNoteChange = (tpText, noteValue) => {
@@ -302,59 +304,15 @@ export default function Reports({ parentAccess = false }) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ tpText, note: noteValue })
     }).catch(() => { });
+    saveReportToCloud(key, { notes: newNotes, status: currentOverrides, selectedChapters });
   };
 
-  // Include selected chapters and teacher notes in public link
+  // Clean, short public parent link (no query params)
   const parentLink = (() => {
     const origin = window.location.hostname === 'localhost'
       ? 'https://edupogres.vercel.app'
       : window.location.origin;
-    const url = new URL(`/ortu/${targetStudent?.id}`, origin);
-    const isAllSelected = allChapters.length > 0 && selectedChapters.length === allChapters.length;
-    
-    if (!isAllSelected) {
-      const allTitles = allChapters.map(c => c.chapter);
-      const selectedIndices = selectedChapters
-        .map(title => allTitles.indexOf(title))
-        .filter(idx => idx !== -1);
-
-      if (selectedIndices.length > 0 && selectedIndices.length < allTitles.length) {
-        url.searchParams.set('b', selectedIndices.join(','));
-      } else {
-        url.searchParams.set('bab', JSON.stringify(selectedChapters));
-      }
-    }
-
-    // Compact index-based notes encoding (extremely short URL)
-    const allTps = getAllTpTexts(globalTpData);
-    const compactNotes = [];
-    Object.entries(rawNotes || {}).forEach(([tpText, noteVal]) => {
-      if (noteVal && typeof noteVal === 'string' && noteVal.trim() !== '') {
-        const idx = allTps.indexOf(tpText);
-        if (idx !== -1) {
-          compactNotes.push(`${idx}:${noteVal.trim()}`);
-        }
-      }
-    });
-    if (compactNotes.length > 0) {
-      url.searchParams.set('n', compactNotes.join('||'));
-    }
-
-    // Compact index-based status overrides encoding
-    const currentOverrides = (tpStatusByStudent[studentKey] || {}).overrides || {};
-    const compactStatuses = [];
-    Object.entries(currentOverrides).forEach(([tpText, statusVal]) => {
-      const idx = allTps.indexOf(tpText);
-      const code = STATUS_TO_CODE[statusVal];
-      if (idx !== -1 && code) {
-        compactStatuses.push(`${idx}:${code}`);
-      }
-    });
-    if (compactStatuses.length > 0) {
-      url.searchParams.set('s', compactStatuses.join(','));
-    }
-
-    return url.toString();
+    return `${origin}/ortu/${targetStudent?.id}`;
   })();
 
   const handleCopyLink = () => {

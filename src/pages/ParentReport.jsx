@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { CheckCircle2, BookOpen, ChevronDown, Clock, GraduationCap, Star, School, Award } from 'lucide-react';
 import { getDefaultPrePostScores, getTpPoints, getAllTpTexts, CODE_TO_STATUS } from './Reports';
+import { fetchReportFromCloud } from '../utils/cloudSync';
 
 // API base URL
 const API_BASE = (typeof window !== 'undefined' && window.location.origin.startsWith('http') && window.location.port !== '5173')
@@ -146,6 +147,21 @@ export default function ParentReport({ student, selectedChapters = null }) {
         }
       })
       .catch(() => {});
+
+    // Fetch latest report data from Cloud Sync (enables 100% clean & short URLs without query params)
+    fetchReportFromCloud(student.id).then(cloudData => {
+      if (cloudData) {
+        if (cloudData.status && Object.keys(cloudData.status).length > 0) {
+          setTpStatusOverrides(prev => ({ ...prev, ...cloudData.status, ...urlStatus }));
+        }
+        if (cloudData.notes && Object.keys(cloudData.notes).length > 0) {
+          setTpNoteOverrides(prev => ({ ...prev, ...cloudData.notes, ...urlNotes }));
+        }
+        if (cloudData.prePost) {
+          setPrePostOverrides(prev => ({ ...prev, ...cloudData.prePost }));
+        }
+      }
+    });
   }, [student?.id]);
 
   if (!student) return null;
