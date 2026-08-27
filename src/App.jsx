@@ -86,6 +86,7 @@ export default function App() {
             <Route path="/parent/:studentId" element={<Reports parentAccess={true} />} />
             {/* Halaman Laporan Bersih untuk Orang Tua via Link — TANPA LOGIN & TANPA MENU */}
             <Route path="/ortu/:studentId" element={<ParentView />} />
+            <Route path="/o/:studentId" element={<ParentView />} />
             <Route path="/settings" element={<ProtectedRoute><AppLayout><Settings /></AppLayout></ProtectedRoute>} />
             <Route path="/penyimpanan" element={<ProtectedRoute><AppLayout><PenyimpananPage /></AppLayout></ProtectedRoute>} />
             <Route path="/quiz" element={<ProtectedRoute><AppLayout><QuizPage /></AppLayout></ProtectedRoute>} />

@@ -36,7 +36,8 @@ export default function ParentView() {
     // Keep legacy links usable when the optional filter is invalid.
   }
 
-  const student = students?.find(s => s.id === studentId) || INITIAL_STUDENTS.find(s => s.id === studentId);
+  const student = students?.find(s => s.id === studentId || s.id === `std-${studentId}`) 
+    || INITIAL_STUDENTS.find(s => s.id === studentId || s.id === `std-${studentId}`);
 
   if (!student) {
     return (
