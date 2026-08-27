@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { CheckCircle2, BookOpen, ChevronDown, Clock, GraduationCap, Star, School, Award } from 'lucide-react';
-import { getDefaultPrePostScores, getTpPoints } from './Reports';
+import { getDefaultPrePostScores, getTpPoints, getAllTpTexts, CODE_TO_STATUS } from './Reports';
 
 // API base URL
 const API_BASE = (typeof window !== 'undefined' && window.location.origin.startsWith('http') && window.location.port !== '5173')
@@ -43,29 +43,62 @@ export default function ParentReport({ student, selectedChapters = null }) {
 
     let urlStatus = {};
     let urlNotes = {};
+    const allTps = getAllTpTexts(globalTpData);
 
     // Decode URL parameters (allows parents on any device/phone to see teacher's notes & statuses)
     if (typeof window !== 'undefined') {
       try {
         const searchParams = new URLSearchParams(window.location.search);
+        
+        // 1. Compact notes param `n` e.g. `n=0:Catatan||3:Catatan kedua`
+        const nParam = searchParams.get('n');
+        if (nParam) {
+          nParam.split('||').forEach(item => {
+            const colonIdx = item.indexOf(':');
+            if (colonIdx !== -1) {
+              const tpIdx = Number(item.slice(0, colonIdx));
+              const noteText = item.slice(colonIdx + 1);
+              const fullTpText = allTps[tpIdx];
+              if (fullTpText && noteText) {
+                urlNotes[fullTpText] = noteText;
+              }
+            }
+          });
+        }
+
+        // 2. Compact status param `s` e.g. `s=0:1,3:4`
+        const sParam = searchParams.get('s');
+        if (sParam) {
+          sParam.split(',').forEach(item => {
+            const [idxStr, code] = item.split(':');
+            const tpIdx = Number(idxStr);
+            const fullTpText = allTps[tpIdx];
+            const statusText = CODE_TO_STATUS[code];
+            if (fullTpText && statusText) {
+              urlStatus[fullTpText] = statusText;
+            }
+          });
+        }
+
+        // Legacy / fallback formats
         const ntParam = searchParams.get('nt') || searchParams.get('notes');
         const stParam = searchParams.get('st') || searchParams.get('status');
 
         if (ntParam) {
           try {
             const decodedStr = decodeURIComponent(atob(ntParam));
-            urlNotes = JSON.parse(decodedStr);
+            Object.assign(urlNotes, JSON.parse(decodedStr));
           } catch (e) {
-            try { urlNotes = JSON.parse(ntParam); } catch (e2) { }
+            try { Object.assign(urlNotes, JSON.parse(ntParam)); } catch (e2) { }
           }
         }
 
         if (stParam) {
           try {
             const decodedStr = decodeURIComponent(atob(stParam));
-            urlStatus = JSON.parse(decodedStr);
+            Object.assign(urlStatus, JSON.parse(decodedStr));
           } catch (e) {
-            try { urlStatus = JSON.parse(stParam); } catch (e2) { }
+            try { Object.assign(urlStatus, JSON.parse(stParam)); } catch (e2) { }
           }
         }
       } catch (e) { /* ignore */ }

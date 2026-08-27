@@ -19,6 +19,29 @@ const statusStyles = {
 
 const STATUS_OPTIONS = ['Sangat Paham', 'Paham', 'Sedang Proses', 'Cukup Paham', 'Belum Paham'];
 
+export const STATUS_TO_CODE = {
+  'Sangat Paham': '1',
+  'Paham': '2',
+  'Sedang Proses': '3',
+  'Cukup Paham': '4',
+  'Belum Paham': '5'
+};
+
+export const CODE_TO_STATUS = {
+  '1': 'Sangat Paham',
+  '2': 'Paham',
+  '3': 'Sedang Proses',
+  '4': 'Cukup Paham',
+  '5': 'Belum Paham'
+};
+
+export const getAllTpTexts = (globalTpData) => {
+  if (!globalTpData || Object.keys(globalTpData).length === 0) return [];
+  return Object.values(globalTpData).flatMap(subjObj => 
+    (subjObj.chapters || []).flatMap(chap => chap.tps || [])
+  );
+};
+
 // Deterministic default Pre-Test & Post-Test scores based on student ID & chapter title
 export const getDefaultPrePostScores = (studentId, chapterTitle) => {
   let hash = 0;
@@ -302,30 +325,33 @@ export default function Reports({ parentAccess = false }) {
       }
     }
 
-    // Encode non-empty teacher notes so they can be viewed on any device
-    const activeNotes = Object.fromEntries(
-      Object.entries(rawNotes || {}).filter(([_, v]) => v && typeof v === 'string' && v.trim() !== '')
-    );
-    if (Object.keys(activeNotes).length > 0) {
-      try {
-        const jsonStr = JSON.stringify(activeNotes);
-        const encoded = btoa(encodeURIComponent(jsonStr));
-        url.searchParams.set('nt', encoded);
-      } catch (e) {
-        url.searchParams.set('notes', JSON.stringify(activeNotes));
+    // Compact index-based notes encoding (extremely short URL)
+    const allTps = getAllTpTexts(globalTpData);
+    const compactNotes = [];
+    Object.entries(rawNotes || {}).forEach(([tpText, noteVal]) => {
+      if (noteVal && typeof noteVal === 'string' && noteVal.trim() !== '') {
+        const idx = allTps.indexOf(tpText);
+        if (idx !== -1) {
+          compactNotes.push(`${idx}:${noteVal.trim()}`);
+        }
       }
+    });
+    if (compactNotes.length > 0) {
+      url.searchParams.set('n', compactNotes.join('||'));
     }
 
-    // Encode custom status overrides if any
+    // Compact index-based status overrides encoding
     const currentOverrides = (tpStatusByStudent[studentKey] || {}).overrides || {};
-    if (Object.keys(currentOverrides).length > 0) {
-      try {
-        const jsonStr = JSON.stringify(currentOverrides);
-        const encoded = btoa(encodeURIComponent(jsonStr));
-        url.searchParams.set('st', encoded);
-      } catch (e) {
-        url.searchParams.set('status', JSON.stringify(currentOverrides));
+    const compactStatuses = [];
+    Object.entries(currentOverrides).forEach(([tpText, statusVal]) => {
+      const idx = allTps.indexOf(tpText);
+      const code = STATUS_TO_CODE[statusVal];
+      if (idx !== -1 && code) {
+        compactStatuses.push(`${idx}:${code}`);
       }
+    });
+    if (compactStatuses.length > 0) {
+      url.searchParams.set('s', compactStatuses.join(','));
     }
 
     return url.toString();
