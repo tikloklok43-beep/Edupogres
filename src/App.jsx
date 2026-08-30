@@ -28,6 +28,7 @@ import Settings from './pages/Settings';
 import PenyimpananPage from './components/PenyimpananPage';
 import QuizPage from './pages/QuizPage';
 import JoinPage from './pages/JoinPage';
+import TaskReport from './pages/TaskReport';
 
 function ProtectedRoute({ children }) {
   const { user } = useAuth();
@@ -90,6 +91,7 @@ export default function App() {
             <Route path="/settings" element={<ProtectedRoute><AppLayout><Settings /></AppLayout></ProtectedRoute>} />
             <Route path="/penyimpanan" element={<ProtectedRoute><AppLayout><PenyimpananPage /></AppLayout></ProtectedRoute>} />
             <Route path="/quiz" element={<ProtectedRoute><AppLayout><QuizPage /></AppLayout></ProtectedRoute>} />
+            <Route path="/task-report" element={<ProtectedRoute><AppLayout><TaskReport /></AppLayout></ProtectedRoute>} />
 
             <Route path="*" element={<Navigate to="/login" replace />} />
             </Routes>

@@ -3,11 +3,12 @@ import { useParams, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { INITIAL_STUDENTS } from '../data/initialData';
 import ParentReport from './ParentReport';
+import ParentTaskReport from './ParentTaskReport';
 
 // Helper to build chapter title list in consistent order
 const getAllChapterTitles = (globalTpData) => {
   if (!globalTpData || Object.keys(globalTpData).length === 0) return [];
-  return Object.values(globalTpData).flatMap(subjObj => 
+  return Object.values(globalTpData).flatMap(subjObj =>
     (subjObj.chapters || []).map(chap => chap.chapter)
   );
 };
@@ -16,6 +17,7 @@ export default function ParentView() {
   const { studentId } = useParams();
   const [searchParams] = useSearchParams();
   const { students, tpData: globalTpData } = useAuth();
+  const isTaskReport = searchParams.get('report') === 'tasks';
 
   let selectedChapters = null;
   try {
@@ -36,7 +38,7 @@ export default function ParentView() {
     // Keep legacy links usable when the optional filter is invalid.
   }
 
-  const student = students?.find(s => s.id === studentId || s.id === `std-${studentId}`) 
+  const student = students?.find(s => s.id === studentId || s.id === `std-${studentId}`)
     || INITIAL_STUDENTS.find(s => s.id === studentId || s.id === `std-${studentId}`);
 
   if (!student) {
@@ -49,6 +51,15 @@ export default function ParentView() {
         </div>
       </div>
     );
+  }
+
+  if (isTaskReport) {
+    let tasks = [];
+    try {
+      const encodedTasks = searchParams.get('t');
+      if (encodedTasks) tasks = JSON.parse(encodedTasks);
+    } catch (error) { /* Link tetap menampilkan laporan kosong jika data rusak */ }
+    return <ParentTaskReport student={student} tasks={tasks} />;
   }
 
   return <ParentReport student={student} selectedChapters={selectedChapters} />;

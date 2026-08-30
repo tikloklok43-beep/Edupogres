@@ -18,7 +18,8 @@ import {
   ClipboardList,
   Gamepad2,
   Settings,
-  LogOut
+  LogOut,
+  CheckSquare
 } from 'lucide-react';
 
 export default function Sidebar() {
@@ -28,6 +29,7 @@ export default function Sidebar() {
     { label: "Beranda", path: "/", icon: LayoutDashboard, color: "text-sky-500" },
     { label: "Jadwal Pelajaran 26/27", path: "/schedule", icon: CalendarCheck, color: "text-amber-500" },
     { label: "Nilai Tugas & Ulangan", path: "/nilai", icon: ClipboardList, color: "text-indigo-500" },
+    { label: "Laporan Tugas Selesai", path: "/task-report", icon: CheckSquare, color: "text-green-500" },
     { label: "Perkembangan Belajar", path: "/learning-progress", icon: TrendingUp, color: "text-emerald-500" },
     { label: "Capaian Pembelajaran", path: "/learning-outcomes", icon: Target, color: "text-amber-600" },
     { label: "Asesmen", path: "/assessment", icon: FileCheck2, color: "text-purple-500" },

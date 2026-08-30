@@ -31,10 +31,8 @@ const generateInitialGrades = () => {
 };
 
 export default function NilaiPage() {
-  const { students, selectedStudent, switchStudent } = useAuth();
+  const { students, selectedStudent, switchStudent, grades, setGrades } = useAuth();
   const subjectList = INITIAL_SUBJECTS || [];
-
-  const [grades, setGrades] = useState(generateInitialGrades);
   const [activeSubject, setActiveSubject] = useState(subjectList[0]?.id || 'pancasila');
   const [activeTab, setActiveTab] = useState('tugas'); // 'tugas' | 'ulangan'
 

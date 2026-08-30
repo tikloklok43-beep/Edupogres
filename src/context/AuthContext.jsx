@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import axios from 'axios';
-import { DEMO_ACCOUNTS, INITIAL_STUDENTS, DEFAULT_SCHEDULE, INITIAL_ACHIEVEMENTS, buildInitialAchievements } from '../data/initialData';
+import { DEMO_ACCOUNTS, INITIAL_STUDENTS, INITIAL_SUBJECTS, DEFAULT_SCHEDULE, INITIAL_ACHIEVEMENTS, buildInitialAchievements } from '../data/initialData';
 import { TP_DATA } from '../data/tpData';
 
 const readStoredValue = (key, fallback) => {
@@ -60,6 +60,25 @@ const syncStudentAchievementCounts = (achievementList, studentList) => {
   }));
 };
 
+const createInitialGrades = () => {
+  const grades = {};
+  INITIAL_STUDENTS.forEach((student) => {
+    grades[student.id] = {};
+    INITIAL_SUBJECTS.forEach((subject) => {
+      grades[student.id][subject.id] = {
+        tugas: [
+          { id: 't1', title: 'Tugas 1 - Lembar Kerja Bab 1', score: 85, date: '2026-07-10' },
+          { id: 't2', title: 'Tugas 2 - PR Soal Latihan', score: 90, date: '2026-07-18' }
+        ],
+        ulangan: [
+          { id: 'u1', title: 'Ulangan Harian Bab 1', score: 88, date: '2026-07-25' }
+        ]
+      };
+    });
+  });
+  return grades;
+};
+
 const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
@@ -79,6 +98,9 @@ export const AuthProvider = ({ children }) => {
   const [scheduleData, setScheduleData] = useState(() => migrateScheduleProfile(readStoredValue('eduprogress_schedule_data', DEFAULT_SCHEDULE)));
   const [achievements, setAchievementsState] = useState(() =>
     migrateAchievements(readStoredValue('eduprogress_achievements', INITIAL_ACHIEVEMENTS))
+  );
+  const [grades, setGrades] = useState(() =>
+    readStoredValue('eduprogress_grades', createInitialGrades())
   );
 
   const setAchievements = (updater) => {
@@ -112,6 +134,10 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     localStorage.setItem('eduprogress_achievements', JSON.stringify(achievements));
   }, [achievements]);
+
+  useEffect(() => {
+    localStorage.setItem('eduprogress_grades', JSON.stringify(grades));
+  }, [grades]);
 
   useEffect(() => {
     setStudents((currentStudents) => syncStudentAchievementCounts(achievements, currentStudents));
@@ -154,6 +180,7 @@ export const AuthProvider = ({ children }) => {
     setStudents(syncStudentAchievementCounts(freshAchievements, INITIAL_STUDENTS));
     setSelectedStudent(INITIAL_STUDENTS[0]);
     setAchievementsState(freshAchievements);
+    setGrades(createInitialGrades());
     setTpData(TP_DATA);
     setScheduleData(DEFAULT_SCHEDULE);
   };
@@ -174,6 +201,8 @@ export const AuthProvider = ({ children }) => {
       setScheduleData,
       achievements,
       setAchievements,
+      grades,
+      setGrades,
       logout,
       demoAccounts: DEMO_ACCOUNTS,
       resetAllData
