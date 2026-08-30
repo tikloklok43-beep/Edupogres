@@ -34,6 +34,7 @@ export default function TaskReport() {
   const [showWaModal, setShowWaModal] = useState(false);
   const [showAllStudents, setShowAllStudents] = useState(true);
   const [linkCopied, setLinkCopied] = useState(false);
+  const [selectedReportSubjects, setSelectedReportSubjects] = useState(() => subjectList.map(subject => subject.id));
 
   const currentStudent = selectedStudent || INITIAL_STUDENTS[0];
   const studentId      = currentStudent?.id || 'std-1';
@@ -105,11 +106,28 @@ export default function TaskReport() {
     return Object.values(map);
   }, [filteredTasks]);
 
+  const reportTasks = useMemo(
+    () => allTasks.filter(task => selectedReportSubjects.includes(task.subId)),
+    [allTasks, selectedReportSubjects]
+  );
+  const reportSubmittedTasks = reportTasks.filter(isSubmitted);
+  const reportMissingCount = reportTasks.filter(task => !isSubmitted(task)).length;
+  const reportAverage = reportSubmittedTasks.length
+    ? Math.round(reportSubmittedTasks.reduce((sum, task) => sum + Number(task.score || 0), 0) / reportSubmittedTasks.length)
+    : 0;
+
+  const toggleReportSubject = (subjectId) => {
+    setSelectedReportSubjects(prev => prev.includes(subjectId)
+      ? prev.filter(id => id !== subjectId)
+      : [...prev, subjectId]
+    );
+  };
+
   // ── WhatsApp message ──────────────────────────────────────────────────────
-  const reportPayload = encodeURIComponent(JSON.stringify(allTasks.map(({ id, title, date, score, subName, status }) => ({ id, title, date, score, subName, status }))));
+  const reportPayload = encodeURIComponent(JSON.stringify(reportTasks.map(({ id, title, date, score, subName, status, type }) => ({ id, title, date, score, subName, status, type }))));
   const parentLink = `${window.location.origin}/ortu/${studentId}?report=tasks&t=${reportPayload}`;
 
-  const buildWaMessage = () => `Assalamu'alaikum Wr. Wb. Yth. ${currentStudent.parentName},\n\nBerikut *Laporan Pengumpulan Tugas* ananda *${currentStudent.name}* (${currentStudent.className}).\n\n📚 Total tugas: ${totalTasks}\n✅ Sudah mengumpulkan: ${submittedTasks.length}\n⚠️ Belum mengumpulkan: ${missingCount}\n📊 Rata-rata nilai tugas: ${avgAll}\n\nLaporan lengkap dapat dilihat melalui tautan berikut:\n${parentLink}\n\n-- ${currentStudent.homeroomTeacher}`;
+  const buildWaMessage = () => `Assalamu'alaikum Wr. Wb. Yth. ${currentStudent.parentName},\n\nBerikut *Laporan Pengumpulan Tugas* ananda *${currentStudent.name}* (${currentStudent.className}).\n\n📚 Total tugas dilaporkan: ${reportTasks.length}\n✅ Sudah mengumpulkan: ${reportSubmittedTasks.length}\n⚠️ Belum mengumpulkan: ${reportMissingCount}\n📊 Rata-rata nilai: ${reportAverage}\n\nLaporan lengkap dapat dilihat melalui tautan berikut:\n${parentLink}\n\n-- ${currentStudent.homeroomTeacher}`;
 
   const copyParentLink = async () => {
     try {
@@ -190,6 +208,29 @@ export default function TaskReport() {
             </button>
           ))}
         </div>
+      </GlassCard>
+
+      {/* ── Pilih Mapel untuk Link Laporan Ortu ── */}
+      <GlassCard className="p-4 space-y-3 no-print">
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <div>
+            <p className="text-xs font-extrabold uppercase tracking-wider text-slate-400">Pilih Mata Pelajaran untuk Dilaporkan</p>
+            <p className="text-[11px] text-slate-500 mt-1">Hanya mapel yang dicentang akan masuk ke link orang tua dan pesan WhatsApp.</p>
+          </div>
+          <div className="flex gap-2">
+            <button onClick={() => setSelectedReportSubjects(subjectList.map(subject => subject.id))} className="px-3 py-1.5 rounded-xl bg-teal-100 text-teal-700 text-[10px] font-extrabold">Pilih Semua</button>
+            <button onClick={() => setSelectedReportSubjects([])} className="px-3 py-1.5 rounded-xl bg-slate-100 text-slate-600 text-[10px] font-extrabold">Kosongkan</button>
+          </div>
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
+          {subjectList.map(subject => (
+            <label key={subject.id} className={`flex items-center gap-2 p-2 rounded-xl cursor-pointer text-xs font-bold border ${selectedReportSubjects.includes(subject.id) ? 'bg-teal-50 border-teal-300 text-teal-700' : 'bg-slate-50 border-slate-200 text-slate-500'}`}>
+              <input type="checkbox" checked={selectedReportSubjects.includes(subject.id)} onChange={() => toggleReportSubject(subject.id)} className="accent-teal-500" />
+              <span className="truncate">{subject.name}</span>
+            </label>
+          ))}
+        </div>
+        <p className="text-[10px] font-bold text-teal-600">{selectedReportSubjects.length} dari {subjectList.length} mata pelajaran dipilih</p>
       </GlassCard>
 
       {/* ── Summary Cards ── */}
