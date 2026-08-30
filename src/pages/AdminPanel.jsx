@@ -29,7 +29,7 @@ const emptyTpEntry = (subjectLabel = 'Mapel Baru') => ({
 });
 
 export default function AdminPanel() {
-  const { students, setStudents, tpData, setTpData, scheduleData, setScheduleData, resetAllData } = useAuth();
+  const { students, setStudents, tpData, setTpData, scheduleData, setScheduleData, grades, setGrades, resetAllData } = useAuth();
   const [activeTab, setActiveTab] = useState('students');
   const [isBackingUp, setIsBackingUp] = useState(false);
   const [backupStatus, setBackupStatus] = useState('');
@@ -289,7 +289,7 @@ export default function AdminPanel() {
     setIsBackingUp(true);
     setTimeout(() => {
       setIsBackingUp(false);
-      const payload = { students, scheduleData: scheduleDraft, tpData, exportedAt: new Date().toISOString() };
+      const payload = { students, grades, scheduleData: scheduleDraft, tpData, exportedAt: new Date().toISOString() };
       const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -306,6 +306,17 @@ export default function AdminPanel() {
       resetAllData();
       alert('✅ Data default berhasil dipulihkan.');
     }
+  };
+
+  const totalGradeEntries = Object.values(grades || {}).reduce((total, studentGrades) =>
+    total + Object.values(studentGrades || {}).reduce((subjectTotal, subjectGrades) =>
+      subjectTotal + (subjectGrades?.tugas?.length || 0) + (subjectGrades?.ulangan?.length || 0), 0), 0);
+
+  const handleDeleteAllGrades = () => {
+    if (!window.confirm('Hapus seluruh nilai tugas dan ulangan semua siswa? Data ini tidak dapat dikembalikan kecuali dari backup.')) return;
+    if (!window.confirm('Konfirmasi terakhir: seluruh data nilai akan dikosongkan sekarang. Lanjutkan?')) return;
+    setGrades({});
+    alert('✅ Seluruh nilai tugas dan ulangan siswa berhasil dihapus.');
   };
 
   return (
@@ -652,6 +663,26 @@ export default function AdminPanel() {
 
       {activeTab === 'backup' && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <GlassCard className="space-y-4 border-2 border-rose-200 dark:border-rose-900/60">
+            <h3 className="text-base font-extrabold text-slate-800 dark:text-slate-100 flex items-center gap-2">
+              <Trash2 className="w-5 h-5 text-rose-500" /> Hapus Seluruh Nilai Siswa
+            </h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+              Menghapus semua nilai <strong>tugas dan ulangan harian</strong> dari seluruh siswa. Data siswa, jadwal, TP, dan prestasi tetap aman.
+            </p>
+            <div className="p-3 rounded-2xl bg-rose-50 dark:bg-rose-950/30 text-center">
+              <p className="text-[10px] font-extrabold uppercase text-rose-500">Data nilai saat ini</p>
+              <p className="text-2xl font-black text-rose-600">{totalGradeEntries}</p>
+              <p className="text-[10px] text-rose-500">entri tugas dan ulangan</p>
+            </div>
+            <button
+              onClick={handleDeleteAllGrades}
+              disabled={totalGradeEntries === 0}
+              className="w-full px-4 py-2.5 bg-rose-500 hover:bg-rose-600 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-extrabold text-xs rounded-2xl flex items-center justify-center gap-2 shadow transition"
+            >
+              <Trash2 className="w-4 h-4" /> Hapus Nilai Semua Siswa
+            </button>
+          </GlassCard>
           <GlassCard className="space-y-4 border-l-4 border-l-emerald-500">
             <h3 className="text-base font-extrabold text-slate-800 dark:text-slate-100 flex items-center gap-2">
               <Download className="w-5 h-5 text-emerald-500" /> Backup Data Lokal
