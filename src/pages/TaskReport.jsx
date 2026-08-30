@@ -45,18 +45,23 @@ export default function TaskReport() {
       const d = grades[studentId]?.[sub.id] || { tugas: [], ulangan: [] };
       (d.tugas || []).forEach(t => list.push({
         ...t, subId: sub.id, subName: sub.name, type: 'Tugas',
-        status: t.status || 'submitted'
+        status: Number(t.score) === 0 ? 'missing' : (t.status || 'submitted')
+      }));
+      (d.ulangan || []).forEach(u => list.push({
+        ...u, subId: sub.id, subName: sub.name, type: 'Ulangan Harian',
+        status: Number(u.score) === 0 ? 'missing' : (u.status || 'submitted')
       }));
     });
     return list;
   }, [studentId, grades, subjectList]);
 
-  const isSubmitted = (task) => task.status !== 'missing';
+  const isSubmitted = (task) => task.status !== 'missing' && Number(task.score) > 0;
 
   const toggleSubmissionStatus = (task) => {
     setGrades(prev => {
       const next = JSON.parse(JSON.stringify(prev));
-      const list = next[studentId]?.[task.subId]?.tugas || [];
+      const listKey = task.type === 'Ulangan Harian' ? 'ulangan' : 'tugas';
+      const list = next[studentId]?.[task.subId]?.[listKey] || [];
       const item = list.find(entry => entry.id === task.id);
       if (item) item.status = isSubmitted(item) ? 'missing' : 'submitted';
       return next;
@@ -83,8 +88,8 @@ export default function TaskReport() {
   // ── Chart data (rata per mapel) ───────────────────────────────────────────
   const chartData = useMemo(() => {
     return subjectList.map(sub => {
-      const d = grades[studentId]?.[sub.id] || { tugas: [] };
-      const submitted = (d.tugas || []).filter(isSubmitted);
+      const d = grades[studentId]?.[sub.id] || { tugas: [], ulangan: [] };
+      const submitted = [...(d.tugas || []), ...(d.ulangan || [])].filter(task => Number(task.score) > 0 && task.status !== 'missing');
       const a = avg(submitted);
       return { name: sub.name.length > 8 ? sub.name.slice(0, 8) + '…' : sub.name, fullName: sub.name, nilai: a, pass: a >= KKM };
     });
@@ -383,9 +388,9 @@ export default function TaskReport() {
             </thead>
             <tbody className="divide-y font-medium">
               {subjectList.map((sub, idx) => {
-                const d    = grades[studentId]?.[sub.id] || { tugas: [] };
-                const tgs  = d.tugas || [];
-                const a    = avg(tgs);
+                const d    = grades[studentId]?.[sub.id] || { tugas: [], ulangan: [] };
+                const tgs  = [...(d.tugas || []), ...(d.ulangan || [])];
+                const a    = avg(tgs.filter(isSubmitted));
                 const pass = tgs.filter(t => t.score >= KKM).length;
                 const fail = tgs.length - pass;
                 const g    = getGrade(a);

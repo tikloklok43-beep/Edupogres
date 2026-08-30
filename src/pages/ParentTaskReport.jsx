@@ -2,8 +2,9 @@ import React from 'react';
 import { CheckCircle2, AlertCircle, ClipboardList } from 'lucide-react';
 
 export default function ParentTaskReport({ student, tasks = [] }) {
-  const submitted = tasks.filter(task => task.status !== 'missing');
-  const missing = tasks.filter(task => task.status === 'missing');
+  const isSubmitted = (task) => task.status !== 'missing' && Number(task.score) > 0;
+  const submitted = tasks.filter(isSubmitted);
+  const missing = tasks.filter(task => !isSubmitted(task));
   const average = submitted.length
     ? Math.round(submitted.reduce((sum, task) => sum + Number(task.score || 0), 0) / submitted.length)
     : 0;
@@ -26,7 +27,7 @@ export default function ParentTaskReport({ student, tasks = [] }) {
         </div>
         <section className="bg-white rounded-3xl shadow-lg p-4 sm:p-6">
           <h2 className="font-black text-lg text-slate-800 mb-4">Rincian Tugas</h2>
-          <div className="overflow-x-auto"><table className="w-full text-sm"><thead><tr className="bg-slate-100 text-left"><th className="p-3">Tugas</th><th className="p-3">Mata Pelajaran</th><th className="p-3">Tanggal</th><th className="p-3 text-center">Status</th><th className="p-3 text-center">Nilai</th></tr></thead><tbody>{tasks.map(task => <tr key={task.id} className="border-b border-slate-100"><td className="p-3 font-bold">{task.title}</td><td className="p-3">{task.subName}</td><td className="p-3">{task.date}</td><td className="p-3 text-center">{task.status === 'missing' ? <span className="inline-flex items-center gap-1 rounded-full bg-rose-100 text-rose-700 px-2 py-1 text-xs font-bold"><AlertCircle className="w-3 h-3" /> Belum Mengumpulkan</span> : <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 text-emerald-700 px-2 py-1 text-xs font-bold"><CheckCircle2 className="w-3 h-3" /> Sudah Mengumpulkan</span>}</td><td className="p-3 text-center font-black">{task.status === 'missing' ? '-' : task.score}</td></tr>)}</tbody></table></div>
+          <div className="overflow-x-auto"><table className="w-full text-sm"><thead><tr className="bg-slate-100 text-left"><th className="p-3">Tugas</th><th className="p-3">Mata Pelajaran</th><th className="p-3">Tanggal</th><th className="p-3 text-center">Status</th><th className="p-3 text-center">Nilai</th></tr></thead><tbody>{tasks.map(task => <tr key={task.id} className="border-b border-slate-100"><td className="p-3 font-bold">{task.title}</td><td className="p-3">{task.subName}</td><td className="p-3">{task.date}</td><td className="p-3 text-center">{!isSubmitted(task) ? <span className="inline-flex items-center gap-1 rounded-full bg-rose-100 text-rose-700 px-2 py-1 text-xs font-bold"><AlertCircle className="w-3 h-3" /> Belum Mengumpulkan</span> : <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 text-emerald-700 px-2 py-1 text-xs font-bold"><CheckCircle2 className="w-3 h-3" /> Sudah Mengumpulkan</span>}</td><td className="p-3 text-center font-black">{!isSubmitted(task) ? '-' : task.score}</td></tr>)}</tbody></table></div>
         </section>
         <p className="text-center text-xs text-slate-500">Laporan ini dibagikan oleh {student.homeroomTeacher || 'Wali Kelas'}.</p>
       </div>
