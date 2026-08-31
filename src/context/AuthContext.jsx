@@ -99,9 +99,23 @@ export const AuthProvider = ({ children }) => {
   const [achievements, setAchievementsState] = useState(() =>
     migrateAchievements(readStoredValue('eduprogress_achievements', INITIAL_ACHIEVEMENTS))
   );
-  const [grades, setGrades] = useState(() =>
+  const [grades, setGradesState] = useState(() =>
     readStoredValue('eduprogress_grades', createInitialGrades())
   );
+
+  // Simpan nilai segera saat diubah agar tidak hilang ketika user langsung
+  // pindah halaman, logout, atau menutup tab sebelum effect berikutnya berjalan.
+  const setGrades = (updater) => {
+    setGradesState((prev) => {
+      const next = typeof updater === 'function' ? updater(prev) : updater;
+      try {
+        localStorage.setItem('eduprogress_grades', JSON.stringify(next));
+      } catch (error) {
+        console.warn('Gagal menyimpan nilai ke browser:', error);
+      }
+      return next;
+    });
+  };
 
   const setAchievements = (updater) => {
     setAchievementsState((prev) => {
