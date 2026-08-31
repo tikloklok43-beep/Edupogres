@@ -38,7 +38,7 @@ export const CODE_TO_STATUS = {
 
 export const getAllTpTexts = (globalTpData) => {
   if (!globalTpData || Object.keys(globalTpData).length === 0) return [];
-  return Object.values(globalTpData).flatMap(subjObj => 
+  return Object.values(globalTpData).flatMap(subjObj =>
     (subjObj.chapters || []).flatMap(chap => chap.tps || [])
   );
 };
@@ -172,27 +172,68 @@ export default function Reports({ parentAccess = false }) {
       localNotes = notesRaw ? JSON.parse(notesRaw) : {};
     } catch (e) { /* ignore */ }
 
+    // Pulihkan seluruh data laporan dari cloud. Local storage tetap dipakai
+    // sebagai cadangan agar perubahan tidak hilang saat server lokal di-reset.
+    fetchReportFromCloud(studentKey).then(cloudData => {
+      if (!cloudData || cancelled) return;
+      const cloudStatus = cloudData.status || {};
+      const cloudNotes = cloudData.notes || {};
+      const cloudPrePost = cloudData.prePost || {};
+      const mergedStatus = { ...localOverrides, ...cloudStatus };
+      const mergedNotes = { ...localNotes, ...cloudNotes };
+
+      if (Object.keys(cloudPrePost).length > 0) {
+        setPrePostByStudent(prev => ({
+          ...prev,
+          [studentKey]: { ...(prev[studentKey] || {}), ...cloudPrePost }
+        }));
+        try { localStorage.setItem(`tpPrePost_${studentKey}`, JSON.stringify(cloudPrePost)); } catch (e) { }
+      }
+      if (cloudData.selectedChapters) setSelectedChapters(cloudData.selectedChapters);
+      setTpNotesByStudent(prev => ({ ...prev, [studentKey]: mergedNotes }));
+      setTpStatusByStudent(prev => ({
+        ...prev,
+        [studentKey]: {
+          data: buildTpData(mergedStatus, mergedNotes),
+          overrides: mergedStatus
+        }
+      }));
+    }).catch(() => { /* cloud tidak tersedia, gunakan data lokal/server */ });
+
     // Fetch status overrides
     fetch(`${API_BASE}/api/tp-report-status/${studentKey}`)
       .then(res => res.json())
       .then(json => {
         if (cancelled) return;
         const serverOverrides = (json && json.data) || {};
-        const merged = { ...localOverrides, ...serverOverrides };
-        setTpStatusByStudent(prev => ({
-          ...prev,
-          [studentKey]: {
-            data: buildTpData(merged, (tpNotesByStudent[studentKey] || localNotes)),
-            overrides: merged
-          }
-        }));
+        setTpStatusByStudent(prev => {
+          // Jangan menimpa data cloud/local yang sudah berhasil dipulihkan
+          // ketika endpoint server lokal mengembalikan data kosong/lama.
+          const currentOverrides = (prev[studentKey] || {}).overrides || {};
+          const merged = { ...localOverrides, ...serverOverrides, ...currentOverrides };
+          const currentNotes = (tpNotesByStudent[studentKey] || localNotes);
+          return {
+            ...prev,
+            [studentKey]: {
+              data: buildTpData(merged, currentNotes),
+              overrides: merged
+            }
+          };
+        });
       })
       .catch(() => {
         if (!cancelled) {
-          setTpStatusByStudent(prev => ({
-            ...prev,
-            [studentKey]: { data: buildTpData(localOverrides, localNotes), overrides: localOverrides }
-          }));
+          setTpStatusByStudent(prev => {
+            const currentOverrides = (prev[studentKey] || {}).overrides || {};
+            const merged = { ...localOverrides, ...currentOverrides };
+            return {
+              ...prev,
+              [studentKey]: {
+                data: buildTpData(merged, tpNotesByStudent[studentKey] || localNotes),
+                overrides: merged
+              }
+            };
+          });
         }
       });
 
@@ -202,7 +243,8 @@ export default function Reports({ parentAccess = false }) {
       .then(json => {
         if (cancelled) return;
         const serverNotes = (json && json.data) || {};
-        const mergedNotes = { ...localNotes, ...serverNotes };
+        const currentNotes = tpNotesByStudent[studentKey] || {};
+        const mergedNotes = { ...localNotes, ...serverNotes, ...currentNotes };
         setTpNotesByStudent(prev => ({ ...prev, [studentKey]: mergedNotes }));
         setTpStatusByStudent(prev => ({
           ...prev,
@@ -240,6 +282,12 @@ export default function Reports({ parentAccess = false }) {
     try {
       localStorage.setItem(`tpPrePost_${studentKey}`, JSON.stringify(updated));
     } catch (e) { }
+    saveReportToCloud(studentKey, {
+      notes: tpNotesByStudent[studentKey] || {},
+      status: (tpStatusByStudent[studentKey] || {}).overrides || {},
+      selectedChapters,
+      prePost: updated
+    });
     setEditingPrePost(null);
   };
 
@@ -279,7 +327,12 @@ export default function Reports({ parentAccess = false }) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ tpText, status: newStatus })
     }).catch(() => { });
-    saveReportToCloud(key, { notes: currentNotes, status: newOverrides, selectedChapters });
+    saveReportToCloud(key, {
+      notes: currentNotes,
+      status: newOverrides,
+      selectedChapters,
+      prePost: prePostByStudent[key] || {}
+    });
   };
 
   const handleNoteChange = (tpText, noteValue) => {
@@ -304,7 +357,12 @@ export default function Reports({ parentAccess = false }) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ tpText, note: noteValue })
     }).catch(() => { });
-    saveReportToCloud(key, { notes: newNotes, status: currentOverrides, selectedChapters });
+    saveReportToCloud(key, {
+      notes: newNotes,
+      status: currentOverrides,
+      selectedChapters,
+      prePost: prePostByStudent[key] || {}
+    });
   };
 
   // Clean, short public parent link (no query params)
