@@ -1,44 +1,53 @@
 import { useEffect, useState } from 'react';
-import { createClient } from '@supabase/supabase-js';
+import { getNotes, saveNote } from '../lib/supabase';
 
-// Vite hanya mengekspos environment variable yang tersedia saat build.
-// Mendukung nama VITE_* dan nama NEXT_PUBLIC_* dari Vercel.
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
-  || import.meta.env.NEXT_PUBLIC_SUPABASE_URL
-  || import.meta.env.SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
-  || import.meta.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-  || import.meta.env.SUPABASE_ANON_KEY
-  || import.meta.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
-
-const supabase = supabaseUrl && supabaseAnonKey
-  ? createClient(supabaseUrl, supabaseAnonKey)
-  : null;
+const EMPTY_NOTE = { content: '', category: 'Umum', teacher: 'Ustadz Iski' };
 
 export default function Notes() {
   const [notes, setNotes] = useState([]);
+  const [note, setNote] = useState(EMPTY_NOTE);
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    async function getNotes() {
-      if (!supabase) {
-        setError('Konfigurasi Supabase belum tersedia.');
-        return;
-      }
-
-      const { data, error: queryError } = await supabase.from('notes').select();
-      if (queryError) {
-        setError(queryError.message);
-        return;
-      }
-      setNotes(data || []);
-    }
-    getNotes();
+    getNotes()
+      .then(setNotes)
+      .catch((queryError) => setError(queryError.message))
+      .finally(() => setLoading(false));
   }, []);
 
-  if (error) {
-    return <div className="p-6 text-rose-600 font-bold">Gagal memuat catatan: {error}</div>;
+  async function handleSave(event) {
+    event.preventDefault();
+    setSaving(true);
+    setError('');
+    try {
+      const savedNote = await saveNote({
+        ...note,
+        date: new Date().toISOString().slice(0, 10),
+      });
+      setNotes((current) => [savedNote, ...current.filter((item) => item.id !== savedNote.id)]);
+      setNote(EMPTY_NOTE);
+    } catch (saveError) {
+      setError(saveError.message);
+    } finally {
+      setSaving(false);
+    }
   }
 
-  return <pre>{JSON.stringify(notes, null, 2)}</pre>;
+  if (loading) return <div className="p-6">Memuat catatan...</div>;
+  if (error) return <div className="p-6 text-rose-600 font-bold">Gagal memuat catatan: {error}</div>;
+
+  return (
+    <div className="p-6 space-y-6">
+      <form onSubmit={handleSave} className="space-y-3">
+        <input value={note.category} onChange={(event) => setNote({ ...note, category: event.target.value })} placeholder="Kategori" className="border rounded p-2 w-full" />
+        <textarea required value={note.content} onChange={(event) => setNote({ ...note, content: event.target.value })} placeholder="Tulis catatan..." className="border rounded p-2 w-full" />
+        <button disabled={saving} className="bg-indigo-600 text-white rounded px-4 py-2">{saving ? 'Menyimpan...' : 'Simpan catatan'}</button>
+      </form>
+      <div className="space-y-3">
+        {notes.map((item) => <article key={item.id} className="border rounded p-4"><strong>{item.category}</strong><p>{item.content}</p></article>)}
+      </div>
+    </div>
+  );
 }
