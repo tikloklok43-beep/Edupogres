@@ -1,12 +1,58 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
+import { updatePassword, sendPasswordResetEmail } from '../lib/supabase';
 import GlassCard from '../components/GlassCard';
-import { Settings as SettingsIcon, Sun, Moon, Contrast, Shield, UserCheck, Bell, Lock } from 'lucide-react';
+import { Settings as SettingsIcon, Sun, Moon, Contrast, UserCheck, Lock } from 'lucide-react';
 
 export default function Settings() {
   const { user, selectedStudent } = useAuth();
   const { themeMode, toggleTheme } = useTheme();
+  const [password, setPassword] = useState('');
+  const [confirmation, setConfirmation] = useState('');
+  const [passwordMessage, setPasswordMessage] = useState('');
+  const [passwordError, setPasswordError] = useState('');
+  const [savingPassword, setSavingPassword] = useState(false);
+
+  async function handlePasswordChange(event) {
+    event.preventDefault();
+    setPasswordMessage('');
+    setPasswordError('');
+    if (password.length < 6) {
+      setPasswordError('Password minimal 6 karakter.');
+      return;
+    }
+    if (password !== confirmation) {
+      setPasswordError('Konfirmasi password tidak sama.');
+      return;
+    }
+    setSavingPassword(true);
+    try {
+      await updatePassword(password);
+      setPassword('');
+      setConfirmation('');
+      setPasswordMessage('Password berhasil diganti.');
+    } catch (error) {
+      setPasswordError(error.message);
+    } finally {
+      setSavingPassword(false);
+    }
+  }
+
+  async function handlePasswordReset() {
+    setPasswordMessage('');
+    setPasswordError('');
+    if (!user?.email) {
+      setPasswordError('Email pengguna tidak tersedia.');
+      return;
+    }
+    try {
+      await sendPasswordResetEmail(user.email);
+      setPasswordMessage(`Link reset password telah dikirim ke ${user.email}.`);
+    } catch (error) {
+      setPasswordError(error.message);
+    }
+  }
 
   return (
     <div className="space-y-6 pb-12">
@@ -24,7 +70,7 @@ export default function Settings() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        
+
         {/* Left: User Profile Summary */}
         <GlassCard className="space-y-4">
           <h3 className="text-base font-extrabold text-slate-800 dark:text-slate-100 flex items-center gap-2">
@@ -50,6 +96,21 @@ export default function Settings() {
               <span className="font-extrabold text-sky-600">{selectedStudent.name}</span>
             </div>
           </div>
+        </GlassCard>
+
+        {/* Password management */}
+        <GlassCard className="space-y-4">
+          <h3 className="text-base font-extrabold text-slate-800 dark:text-slate-100 flex items-center gap-2">
+            <Lock className="w-5 h-5 text-indigo-500" /> Keamanan Akun
+          </h3>
+          <form onSubmit={handlePasswordChange} className="space-y-3">
+            <input type="password" required minLength={6} value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Password baru" className="w-full border rounded-xl p-3 text-sm bg-white dark:bg-slate-800" />
+            <input type="password" required minLength={6} value={confirmation} onChange={(event) => setConfirmation(event.target.value)} placeholder="Konfirmasi password baru" className="w-full border rounded-xl p-3 text-sm bg-white dark:bg-slate-800" />
+            <button disabled={savingPassword} className="w-full rounded-xl bg-indigo-600 text-white p-3 text-sm font-bold disabled:opacity-50">{savingPassword ? 'Menyimpan...' : 'Ganti Password'}</button>
+          </form>
+          <button type="button" onClick={handlePasswordReset} className="w-full rounded-xl border-indigo-300 text-indigo-600 p-3 text-sm font-bold">Kirim Link Reset ke Email</button>
+          {passwordMessage && <p className="text-sm font-semibold text-emerald-600">{passwordMessage}</p>}
+          {passwordError && <p className="text-sm font-semibold text-rose-600">{passwordError}</p>}
         </GlassCard>
 
         {/* Right: Theme & Display Accessibility Settings */}

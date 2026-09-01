@@ -66,3 +66,23 @@ export async function updateNote(id, changes) {
 export async function saveNote(note) {
   return note.id ? updateNote(note.id, note) : insertNote(note);
 }
+
+/**
+ * Mengganti password pengguna yang sedang memiliki sesi Supabase aktif.
+ */
+export async function updatePassword(password) {
+  const { data, error } = await supabase.auth.updateUser({ password });
+  if (error) throw error;
+  return data;
+}
+
+/**
+ * Mengirim email pemulihan password ke alamat pengguna.
+ */
+export async function sendPasswordResetEmail(email) {
+  const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: `${window.location.origin}/settings`,
+  });
+  if (error) throw error;
+  return data;
+}
