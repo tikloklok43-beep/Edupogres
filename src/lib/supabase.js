@@ -7,21 +7,23 @@ const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
   || import.meta.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
   || import.meta.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
 
-if (!supabaseUrl) {
-  throw new Error('VITE_SUPABASE_URL belum dikonfigurasi.');
-}
+export const supabase = (supabaseUrl && supabaseAnonKey)
+  ? createClient(supabaseUrl, supabaseAnonKey)
+  : null;
 
-if (!supabaseAnonKey) {
-  throw new Error('VITE_SUPABASE_ANON_KEY atau VITE_SUPABASE_PUBLISHABLE_KEY belum dikonfigurasi.');
+function ensureSupabase() {
+  if (!supabase) {
+    throw new Error('VITE_SUPABASE_URL atau VITE_SUPABASE_ANON_KEY belum dikonfigurasi di file .env');
+  }
+  return supabase;
 }
-
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 /**
  * Mengambil semua catatan dari tabel `notes`.
  */
 export async function getNotes() {
-  const { data, error } = await supabase
+  const client = ensureSupabase();
+  const { data, error } = await client
     .from('notes')
     .select('*')
     .order('created_at', { ascending: false });
@@ -35,7 +37,8 @@ export async function getNotes() {
  * Jangan kirim service-role key dari browser; RLS Supabase tetap berlaku.
  */
 export async function insertNote(note) {
-  const { data, error } = await supabase
+  const client = ensureSupabase();
+  const { data, error } = await client
     .from('notes')
     .insert(note)
     .select()
@@ -49,7 +52,8 @@ export async function insertNote(note) {
  * Memperbarui catatan berdasarkan id.
  */
 export async function updateNote(id, changes) {
-  const { data, error } = await supabase
+  const client = ensureSupabase();
+  const { data, error } = await client
     .from('notes')
     .update(changes)
     .eq('id', id)
@@ -71,7 +75,8 @@ export async function saveNote(note) {
  * Mengganti password pengguna yang sedang memiliki sesi Supabase aktif.
  */
 export async function updatePassword(password) {
-  const { data, error } = await supabase.auth.updateUser({ password });
+  const client = ensureSupabase();
+  const { data, error } = await client.auth.updateUser({ password });
   if (error) throw error;
   return data;
 }
@@ -80,7 +85,8 @@ export async function updatePassword(password) {
  * Mengirim email pemulihan password ke alamat pengguna.
  */
 export async function sendPasswordResetEmail(email) {
-  const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
+  const client = ensureSupabase();
+  const { data, error } = await client.auth.resetPasswordForEmail(email, {
     redirectTo: `${window.location.origin}/settings`,
   });
   if (error) throw error;
