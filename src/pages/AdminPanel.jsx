@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import GlassCard from '../components/GlassCard';
 import { DEFAULT_SCHEDULE } from '../data/initialData';
 import { ShieldCheck, Database, RefreshCw, Download, Upload, Plus, Trash2, Edit, Save, FileJson } from 'lucide-react';
+import { supabase, syncStudentsTable, syncAppState } from '../lib/supabase';
 
 const emptyStudent = {
   id: '',
@@ -157,7 +158,7 @@ export default function AdminPanel() {
     setActiveTab('students');
   };
 
-  const handleSaveStudent = () => {
+  const handleSaveStudent = async () => {
     if (!studentDraft.name.trim()) {
       alert('Nama siswa tidak boleh kosong.');
       return;
@@ -176,22 +177,60 @@ export default function AdminPanel() {
       totalAchievements: Number(studentDraft.totalAchievements) || 0
     };
 
-    setStudents((prev) => {
-      const exists = prev.some((item) => item.id === cleanedStudent.id);
+    const nextStudents = (() => {
+      const exists = students.some((item) => item.id === cleanedStudent.id);
       if (exists) {
-        return prev.map((item) => (item.id === cleanedStudent.id ? cleanedStudent : item));
+        return students.map((item) => (item.id === cleanedStudent.id ? cleanedStudent : item));
       }
-      return [...prev, cleanedStudent];
-    });
+      return [...students, cleanedStudent];
+    })();
 
+    setStudents(nextStudents);
     setSelectedStudentId(cleanedStudent.id);
     setStudentDraft(cleanedStudent);
-    alert('✅ Data siswa berhasil disimpan.');
+
+    // Langsung simpan ke Supabase tabel students
+    if (supabase) {
+      try {
+        await supabase.from('students').upsert({
+          id: cleanedStudent.id,
+          name: cleanedStudent.name,
+          nisn: cleanedStudent.nisn,
+          class_name: cleanedStudent.className,
+          homeroom_teacher: cleanedStudent.homeroomTeacher,
+          avatar: cleanedStudent.avatar,
+          parent_name: cleanedStudent.parentName,
+          parent_phone: cleanedStudent.parentPhone,
+          parent_email: cleanedStudent.parentEmail,
+          attendance_rate: cleanedStudent.attendanceRate,
+          average_score: cleanedStudent.averageScore,
+          overall_progress: cleanedStudent.overallProgress,
+          total_achievements: cleanedStudent.totalAchievements,
+          updated_at: new Date().toISOString()
+        }, { onConflict: 'id' });
+      } catch (err) {
+        console.warn('Supabase upsert error:', err);
+      }
+    }
+    syncAppState('students', nextStudents);
+    syncStudentsTable(nextStudents);
+
+    alert('✅ Data siswa berhasil disimpan dan tersinkron ke Supabase!');
   };
 
-  const handleDeleteStudent = (id) => {
+  const handleDeleteStudent = async (id) => {
     if (!window.confirm('Apakah Anda yakin ingin menghapus siswa ini?')) return;
-    setStudents((prev) => prev.filter((student) => student.id !== id));
+    const nextStudents = students.filter((student) => student.id !== id);
+    setStudents(nextStudents);
+    if (supabase) {
+      try {
+        await supabase.from('students').delete().eq('id', id);
+      } catch (err) {
+        console.warn('Supabase delete error:', err);
+      }
+    }
+    syncAppState('students', nextStudents);
+    syncStudentsTable(nextStudents);
   };
 
   const updateScheduleCell = (rowIndex, key, value) => {
