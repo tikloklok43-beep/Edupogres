@@ -1,55 +1,76 @@
-// Cloud Sync for EduProgress Parent Report
-const CLOUD_MAP = {
-  "std-1": "ff8081819ff5b11001a0412c8d0f2e1a",
-  "std-2": "ff8081819ff5b11001a0412c8d952e1b",
-  "std-3": "ff8081819ff5b11001a0412c8de72e1c",
-  "std-4": "ff8081819ff5b11001a0412c8e3b2e1d",
-  "std-5": "ff8081819ff5b11001a0412c8e882e1e",
-  "std-6": "ff8081819ff5b11001a0412c8eda2e1f",
-  "std-7": "ff8081819ff5b11001a0412c8f292e20",
-  "std-8": "ff8081819ff5b11001a0412c8f752e21",
-  "std-9": "ff8081819ff5b11001a0412c8fc52e22"
-};
+import { supabase, syncAppState, fetchAppState } from '../lib/supabase';
 
+// Cloud Sync for EduProgress Parent Report via Supabase
 export async function saveReportToCloud(studentId, payload) {
   const stdId = studentId?.startsWith('std-') ? studentId : `std-${studentId}`;
-  const cloudId = CLOUD_MAP[stdId];
-  if (!cloudId) return null;
+  const reportData = {
+    notes: payload.notes || {},
+    status: payload.status || {},
+    selectedChapters: payload.selectedChapters || null,
+    prePost: payload.prePost || null,
+    updatedAt: new Date().toISOString()
+  };
 
-  try {
-    const res = await fetch(`https://api.restful-api.dev/objects/${cloudId}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        name: `edupogres_report_${stdId}`,
-        data: {
-          notes: payload.notes || {},
-          status: payload.status || {},
-          selectedChapters: payload.selectedChapters || null,
-          prePost: payload.prePost || null,
-          updatedAt: new Date().toISOString()
-        }
-      })
-    });
-    return await res.json();
-  } catch (e) {
-    console.warn('Cloud sync error:', e);
-    return null;
+  // 1. Simpan ke Supabase tabel parent_reports jika ada
+  if (supabase) {
+    try {
+      const { data, error } = await supabase
+        .from('parent_reports')
+        .upsert({
+          student_id: stdId,
+          report_data: reportData,
+          updated_at: new Date().toISOString()
+        }, { onConflict: 'student_id' });
+
+      if (!error) {
+        return { success: true, data: reportData };
+      }
+    } catch (err) {
+      console.warn('[Supabase parent_reports]:', err);
+    }
   }
+
+  // 2. Fallback simpan ke app_sync_data di Supabase
+  await syncAppState(`report_${stdId}`, reportData);
+
+  // 3. Simpan juga ke localStorage browser
+  try {
+    localStorage.setItem(`eduprogress_cloud_report_${stdId}`, JSON.stringify(reportData));
+  } catch (e) {}
+
+  return { success: true, data: reportData };
 }
 
 export async function fetchReportFromCloud(studentId) {
   const stdId = studentId?.startsWith('std-') ? studentId : `std-${studentId}`;
-  const cloudId = CLOUD_MAP[stdId];
-  if (!cloudId) return null;
 
+  // 1. Ambil dari Supabase parent_reports
+  if (supabase) {
+    try {
+      const { data, error } = await supabase
+        .from('parent_reports')
+        .select('report_data')
+        .eq('student_id', stdId)
+        .single();
+
+      if (!error && data?.report_data) {
+        return data.report_data;
+      }
+    } catch (err) {
+      console.warn('[Supabase fetchReportFromCloud]:', err);
+    }
+  }
+
+  // 2. Ambil dari app_sync_data di Supabase
+  const fallbackCloud = await fetchAppState(`report_${stdId}`);
+  if (fallbackCloud) return fallbackCloud;
+
+  // 3. Ambil dari localStorage
   try {
-    const res = await fetch(`https://api.restful-api.dev/objects/${cloudId}`);
-    if (!res.ok) return null;
-    const json = await res.json();
-    return json?.data || null;
+    const local = localStorage.getItem(`eduprogress_cloud_report_${stdId}`);
+    return local ? JSON.parse(local) : null;
   } catch (e) {
-    console.warn('Cloud fetch error:', e);
     return null;
   }
 }
+

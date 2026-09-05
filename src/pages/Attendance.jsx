@@ -14,6 +14,7 @@ import {
   Cell
 } from 'recharts';
 import { CalendarCheck, CheckCircle2, Clock, AlertTriangle, XCircle, PencilLine, X, Lock, ChevronLeft, ChevronRight } from 'lucide-react';
+import { syncAppState, fetchAppState } from '../lib/supabase';
 
 // Helper: is this day a weekend (Sabtu & Ahad/Minggu)?
 // getDay(): 0=Sunday(Ahad), 6=Saturday(Sabtu)
@@ -87,6 +88,22 @@ export default function Attendance() {
   const [days, setDays] = useState(() => getStudentMonthDays(studentId, 6, 2026));
   const [openPicker, setOpenPicker] = useState(null); // day number whose picker is open
 
+  // Cloud hydration from Supabase
+  useEffect(() => {
+    async function loadCloudAttendance() {
+      const cloud = await fetchAppState('attendance');
+      if (cloud && typeof cloud === 'object') {
+        setAttendanceByStudent(cloud);
+        saveAttendanceStorage(cloud);
+        const monthKey = `${year}-${month}`;
+        if (cloud[studentId]?.[monthKey]) {
+          setDays(cloud[studentId][monthKey]);
+        }
+      }
+    }
+    loadCloudAttendance();
+  }, []);
+
   useEffect(() => {
     const nextDays = getStudentMonthDays(studentId, month, year);
     setDays(nextDays);
@@ -106,6 +123,7 @@ export default function Attendance() {
         }
       };
       saveAttendanceStorage(next);
+      syncAppState('attendance', next);
       return next;
     });
   };

@@ -1,15 +1,53 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { INITIAL_PORTFOLIOS } from '../data/initialData';
 import GlassCard from '../components/GlassCard';
 import axios from 'axios';
 import { FolderKanban, Plus, MessageSquare, Image, Video, FileText, Award, Send, Trash2, X } from 'lucide-react';
+import { syncAppState, fetchAppState } from '../lib/supabase';
+
+const PORTFOLIO_STORAGE_KEY = 'eduprogress_portfolios';
 
 export default function Portfolio() {
-  const [portfolios, setPortfolios] = useState(INITIAL_PORTFOLIOS);
+  const [portfolios, setPortfolios] = useState(() => {
+    try {
+      const stored = localStorage.getItem(PORTFOLIO_STORAGE_KEY);
+      return stored ? JSON.parse(stored) : INITIAL_PORTFOLIOS;
+    } catch (e) {
+      return INITIAL_PORTFOLIOS;
+    }
+  });
   const [filterCategory, setFilterCategory] = useState('Semua');
   const [commentInputs, setCommentInputs] = useState({});
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(null);
+
+  // Form state for upload
+  const [newTitle, setNewTitle] = useState('');
+  const [newCategory, setNewCategory] = useState('Hasil Menggambar');
+  const [newDesc, setNewDesc] = useState('');
+  const [newUrl, setNewUrl] = useState('');
+
+  // Cloud hydration from Supabase
+  useEffect(() => {
+    async function loadCloudPortfolios() {
+      const cloud = await fetchAppState('portfolios');
+      if (cloud && Array.isArray(cloud) && cloud.length > 0) {
+        setPortfolios(cloud);
+        try {
+          localStorage.setItem(PORTFOLIO_STORAGE_KEY, JSON.stringify(cloud));
+        } catch (e) {}
+      }
+    }
+    loadCloudPortfolios();
+  }, []);
+
+  const savePortfolios = (newPortfolios) => {
+    setPortfolios(newPortfolios);
+    try {
+      localStorage.setItem(PORTFOLIO_STORAGE_KEY, JSON.stringify(newPortfolios));
+    } catch (e) {}
+    syncAppState('portfolios', newPortfolios);
+  };
 
   const categories = ['Semua', 'Hasil Menggambar', 'Kerajinan Handcraft', 'Presentasi Video', 'Sertifikat'];
 
@@ -17,26 +55,40 @@ export default function Portfolio() {
     ? portfolios
     : portfolios.filter(p => p.category === filterCategory);
 
-const handleAddComment = (id) => {
+  const handleAddComment = (id) => {
     const text = commentInputs[id];
     if (!text) return;
-    setPortfolios(prev =>
-      prev.map(p => p.id === id ? { ...p, teacherComment: text } : p)
-    );
+    const updated = portfolios.map(p => p.id === id ? { ...p, teacherComment: text } : p);
+    savePortfolios(updated);
     setCommentInputs({ ...commentInputs, [id]: '' });
   };
 
   const handleDelete = async (id) => {
     try {
-      const res = await axios.delete(`/api/portfolio/${id}`);
-      if (res.data?.success || res.status === 200) {
-        setPortfolios(prev => prev.filter(p => p.id !== id));
-      }
-    } catch (err) {
-      // Even if server fails, remove locally so UI stays consistent
-      setPortfolios(prev => prev.filter(p => p.id !== id));
-    }
+      await axios.delete(`/api/portfolio/${id}`);
+    } catch (err) {}
+    const updated = portfolios.filter(p => p.id !== id);
+    savePortfolios(updated);
     setConfirmDelete(null);
+  };
+
+  const handleCreatePortfolio = (e) => {
+    e.preventDefault();
+    if (!newTitle.trim()) return;
+    const newItem = {
+      id: `port-${Date.now()}`,
+      title: newTitle,
+      category: newCategory,
+      description: newDesc || `Karya ${newCategory} oleh siswa.`,
+      date: new Date().toISOString().split('T')[0],
+      fileUrl: newUrl || 'https://images.unsplash.com/photo-1579783902614-a3fb3927b675?w=800&auto=format&fit=crop&q=60',
+      teacherComment: 'Karya sangat bagus dan kreatif!'
+    };
+    savePortfolios([newItem, ...portfolios]);
+    setNewTitle('');
+    setNewDesc('');
+    setNewUrl('');
+    setShowUploadModal(false);
   };
 
   return (
@@ -144,27 +196,64 @@ const handleAddComment = (id) => {
       {showUploadModal && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 w-full max-w-md rounded-4xl p-6 shadow-2xl space-y-4">
-            <h3 className="text-lg font-black text-slate-800 dark:text-slate-100">Unggah Hasil Karya Murid</h3>
-            <div className="space-y-3 text-xs">
+            <form onSubmit={handleCreatePortfolio} className="space-y-3 text-xs">
               <div>
                 <label className="block font-bold mb-1">Judul Karya</label>
-                <input type="text" placeholder="Contoh: Lukisan Cat Air Pemandangan" className="w-full p-2.5 bg-slate-100 dark:bg-slate-800 rounded-2xl" />
+                <input
+                  type="text"
+                  required
+                  value={newTitle}
+                  onChange={(e) => setNewTitle(e.target.value)}
+                  placeholder="Contoh: Lukisan Cat Air Pemandangan"
+                  className="w-full p-2.5 bg-slate-100 dark:bg-slate-800 rounded-2xl"
+                />
               </div>
               <div>
                 <label className="block font-bold mb-1">Kategori Karya</label>
-                <select className="w-full p-2.5 bg-slate-100 dark:bg-slate-800 rounded-2xl font-bold">
+                <select
+                  value={newCategory}
+                  onChange={(e) => setNewCategory(e.target.value)}
+                  className="w-full p-2.5 bg-slate-100 dark:bg-slate-800 rounded-2xl font-bold"
+                >
                   {categories.filter(c => c !== 'Semua').map(c => <option key={c} value={c}>{c}</option>)}
                 </select>
               </div>
               <div>
-                <label className="block font-bold mb-1">File Karya (Foto/Video/PDF)</label>
-                <input type="file" className="w-full p-2 bg-slate-100 dark:bg-slate-800 rounded-2xl" />
+                <label className="block font-bold mb-1">Deskripsi Singkat</label>
+                <input
+                  type="text"
+                  value={newDesc}
+                  onChange={(e) => setNewDesc(e.target.value)}
+                  placeholder="Contoh: Lukisan pemandangan gunung dengan teknik gradasi warna."
+                  className="w-full p-2.5 bg-slate-100 dark:bg-slate-800 rounded-2xl"
+                />
               </div>
-            </div>
-<div className="flex gap-2 justify-end pt-2">
-              <button onClick={() => setShowUploadModal(false)} className="px-4 py-2 bg-slate-200 dark:bg-slate-800 font-bold text-xs rounded-2xl">Batal</button>
-              <button onClick={() => { setShowUploadModal(false); alert('Hasil karya berhasil disimpan di Portofolio!'); }} className="px-4 py-2 bg-rose-500 text-white font-extrabold text-xs rounded-2xl">Simpan Karya</button>
-            </div>
+              <div>
+                <label className="block font-bold mb-1">URL Gambar (Opsional)</label>
+                <input
+                  type="url"
+                  value={newUrl}
+                  onChange={(e) => setNewUrl(e.target.value)}
+                  placeholder="https://images.unsplash.com/..."
+                  className="w-full p-2.5 bg-slate-100 dark:bg-slate-800 rounded-2xl"
+                />
+              </div>
+              <div className="flex gap-2 justify-end pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowUploadModal(false)}
+                  className="px-4 py-2 bg-slate-200 dark:bg-slate-800 font-bold text-xs rounded-2xl"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-rose-500 text-white font-extrabold text-xs rounded-2xl shadow hover:bg-rose-600 transition"
+                >
+                  Simpan Karya
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

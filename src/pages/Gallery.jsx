@@ -3,31 +3,58 @@ import { INITIAL_GALLERY } from '../data/initialData';
 import GlassCard from '../components/GlassCard';
 import axios from 'axios';
 import { Image, Video, Heart, Calendar, Sparkles, Plus, Trash2, X, Upload, Loader2 } from 'lucide-react';
+import { syncAppState, fetchAppState } from '../lib/supabase';
 
 const CATEGORIES = ['Field Trip', 'Kegiatan Proyek', 'Praktikum', 'Festival', 'Kegiatan Sekolah', 'Foto Kelas'];
+const GALLERY_STORAGE_KEY = 'eduprogress_gallery';
 
 export default function Gallery() {
-  const [gallery, setGallery] = useState(INITIAL_GALLERY);
+  const [gallery, setGallery] = useState(() => {
+    try {
+      const stored = localStorage.getItem(GALLERY_STORAGE_KEY);
+      return stored ? JSON.parse(stored) : INITIAL_GALLERY;
+    } catch (e) {
+      return INITIAL_GALLERY;
+    }
+  });
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [form, setForm] = useState({ title: '', category: CATEGORIES[0], url: '', file: null });
   const [confirmDelete, setConfirmDelete] = useState(null);
 
-  // Try to load from server on mount (falls back to local seed if server unreachable)
+  // Cloud hydration from Supabase & API
   useEffect(() => {
-    axios.get('/api/gallery')
-      .then(res => {
-        if (res.data?.success && res.data.data?.length) {
-          setGallery(res.data.data);
-        }
-      })
-      .catch(() => { /* keep local seed */ });
+    async function loadCloudGallery() {
+      const cloud = await fetchAppState('gallery');
+      if (cloud && Array.isArray(cloud) && cloud.length > 0) {
+        setGallery(cloud);
+        try {
+          localStorage.setItem(GALLERY_STORAGE_KEY, JSON.stringify(cloud));
+        } catch (e) {}
+      } else {
+        axios.get('/api/gallery')
+          .then(res => {
+            if (res.data?.success && res.data.data?.length) {
+              setGallery(res.data.data);
+            }
+          })
+          .catch(() => {});
+      }
+    }
+    loadCloudGallery();
   }, []);
 
+  const saveGallery = (newGallery) => {
+    setGallery(newGallery);
+    try {
+      localStorage.setItem(GALLERY_STORAGE_KEY, JSON.stringify(newGallery));
+    } catch (e) {}
+    syncAppState('gallery', newGallery);
+  };
+
   const toggleLike = (id) => {
-    setGallery(prev =>
-      prev.map(g => g.id === id ? { ...g, likes: (g.likes || 0) + 1 } : g)
-    );
+    const updated = gallery.map(g => g.id === id ? { ...g, likes: (g.likes || 0) + 1 } : g);
+    saveGallery(updated);
   };
 
   const handleFileChange = (e) => {
@@ -37,6 +64,15 @@ export default function Gallery() {
 
   const handleUpload = async () => {
     setUploading(true);
+    const newDoc = {
+      id: `gal-${Date.now()}`,
+      title: form.title || 'Dokumentasi Sekolah',
+      category: form.category || 'Kegiatan Sekolah',
+      date: new Date().toISOString().split('T')[0],
+      imageUrl: form.url || 'https://images.unsplash.com/photo-1509062522246-3755977927d7?w=800&auto=format&fit=crop&q=60',
+      likes: 0
+    };
+
     try {
       const fd = new FormData();
       fd.append('title', form.title || 'Dokumentasi Baru');
@@ -49,30 +85,28 @@ export default function Gallery() {
       const res = await axios.post('/api/gallery', fd, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
-      if (res.data?.success) {
-        setGallery(prev => [res.data.data, ...prev]);
-        setForm({ title: '', category: CATEGORIES[0], url: '', file: null });
-        setShowUploadModal(false);
+      if (res.data?.success && res.data.data) {
+        const updated = [res.data.data, ...gallery];
+        saveGallery(updated);
+      } else {
+        saveGallery([newDoc, ...gallery]);
       }
     } catch (err) {
-      alert('Gagal mengunggah. Pastikan server berjalan dan coba lagi.');
+      saveGallery([newDoc, ...gallery]);
     } finally {
+      setForm({ title: '', category: CATEGORIES[0], url: '', file: null });
+      setShowUploadModal(false);
       setUploading(false);
     }
   };
 
   const handleDelete = async (id) => {
     try {
-      const res = await axios.delete(`/api/gallery/${id}`);
-      if (res.data?.success || res.status === 200) {
-        setGallery(prev => prev.filter(g => g.id !== id));
-      }
-      setConfirmDelete(null);
-    } catch (err) {
-      // Even if server fails, remove locally so UI stays consistent
-      setGallery(prev => prev.filter(g => g.id !== id));
-      setConfirmDelete(null);
-    }
+      await axios.delete(`/api/gallery/${id}`);
+    } catch (err) {}
+    const updated = gallery.filter(g => g.id !== id);
+    saveGallery(updated);
+    setConfirmDelete(null);
   };
 
   return (

@@ -1,15 +1,39 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { INITIAL_DAILY_NOTES } from '../data/initialData';
 import { useAuth } from '../context/AuthContext';
 import GlassCard from '../components/GlassCard';
 import { BookOpenCheck, Sparkles, Plus, Calendar, User, Heart, Send } from 'lucide-react';
+import { syncAppState, fetchAppState } from '../lib/supabase';
+
+const DAILY_NOTES_KEY = 'eduprogress_daily_notes';
 
 export default function DailyNotes() {
   const { selectedStudent } = useAuth();
-  const [notes, setNotes] = useState(INITIAL_DAILY_NOTES);
+  const [notes, setNotes] = useState(() => {
+    try {
+      const stored = localStorage.getItem(DAILY_NOTES_KEY);
+      return stored ? JSON.parse(stored) : INITIAL_DAILY_NOTES;
+    } catch (e) {
+      return INITIAL_DAILY_NOTES;
+    }
+  });
   const [newCategory, setNewCategory] = useState('Sikap & Character Building');
   const [newContent, setNewContent] = useState('');
   const [isGeneratingAI, setIsGeneratingAI] = useState(false);
+
+  // Cloud hydration from Supabase
+  useEffect(() => {
+    async function loadCloudDailyNotes() {
+      const cloud = await fetchAppState('daily_notes');
+      if (cloud && Array.isArray(cloud) && cloud.length > 0) {
+        setNotes(cloud);
+        try {
+          localStorage.setItem(DAILY_NOTES_KEY, JSON.stringify(cloud));
+        } catch (e) {}
+      }
+    }
+    loadCloudDailyNotes();
+  }, []);
 
   const handleAddNote = (e) => {
     e.preventDefault();
@@ -20,9 +44,14 @@ export default function DailyNotes() {
       category: newCategory,
       content: newContent,
       icon: '🌟',
-      teacher: selectedStudent.homeroomTeacher
+      teacher: selectedStudent?.homeroomTeacher || 'Ustadz Iski'
     };
-    setNotes([item, ...notes]);
+    const updated = [item, ...notes];
+    setNotes(updated);
+    try {
+      localStorage.setItem(DAILY_NOTES_KEY, JSON.stringify(updated));
+    } catch (e) {}
+    syncAppState('daily_notes', updated);
     setNewContent('');
   };
 

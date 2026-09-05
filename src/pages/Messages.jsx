@@ -1,13 +1,45 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { INITIAL_MESSAGES } from '../data/initialData';
 import { useAuth } from '../context/AuthContext';
 import GlassCard from '../components/GlassCard';
 import { MessageSquareText, Send, User, CheckCheck, Sparkles } from 'lucide-react';
+import { syncAppState, fetchAppState } from '../lib/supabase';
+
+const MESSAGES_STORAGE_KEY = 'eduprogress_messages';
 
 export default function Messages() {
   const { user, selectedStudent } = useAuth();
-  const [messages, setMessages] = useState(INITIAL_MESSAGES);
+  const [messages, setMessages] = useState(() => {
+    try {
+      const stored = localStorage.getItem(MESSAGES_STORAGE_KEY);
+      return stored ? JSON.parse(stored) : INITIAL_MESSAGES;
+    } catch (e) {
+      return INITIAL_MESSAGES;
+    }
+  });
   const [inputText, setInputText] = useState('');
+
+  // Cloud hydration from Supabase
+  useEffect(() => {
+    async function loadCloudMessages() {
+      const cloud = await fetchAppState('messages');
+      if (cloud && Array.isArray(cloud) && cloud.length > 0) {
+        setMessages(cloud);
+        try {
+          localStorage.setItem(MESSAGES_STORAGE_KEY, JSON.stringify(cloud));
+        } catch (e) {}
+      }
+    }
+    loadCloudMessages();
+  }, []);
+
+  const saveMessages = (newMessages) => {
+    setMessages(newMessages);
+    try {
+      localStorage.setItem(MESSAGES_STORAGE_KEY, JSON.stringify(newMessages));
+    } catch (e) {}
+    syncAppState('messages', newMessages);
+  };
 
   const handleSend = (e) => {
     e.preventDefault();
@@ -22,7 +54,8 @@ export default function Messages() {
       isRead: true
     };
 
-    setMessages((prev) => [...prev, newMsg]);
+    const updated = [...messages, newMsg];
+    saveMessages(updated);
     const sentText = inputText;
     setInputText('');
 
@@ -31,12 +64,16 @@ export default function Messages() {
       const autoReply = {
         id: `msg-${Date.now() + 1}`,
         senderRole: 'Guru',
-        senderName: selectedStudent.homeroomTeacher,
-        text: `Terima kasih atas pesannya! Informasi mengenai "${sentText}" sudah saya catat untuk evaluasi perkembangan ananda ${selectedStudent.name}.`,
+        senderName: selectedStudent?.homeroomTeacher || 'Ustadz Iski',
+        text: `Terima kasih atas pesannya! Informasi mengenai "${sentText}" sudah saya catat untuk evaluasi perkembangan ananda ${selectedStudent?.name || 'Siswa'}.`,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         isRead: true
       };
-      setMessages((prev) => [...prev, autoReply]);
+      setMessages((prev) => {
+        const next = [...prev, autoReply];
+        saveMessages(next);
+        return next;
+      });
     }, 1200);
   };
 

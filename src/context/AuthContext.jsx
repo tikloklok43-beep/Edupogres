@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import axios from 'axios';
 import { DEMO_ACCOUNTS, INITIAL_STUDENTS, INITIAL_SUBJECTS, DEFAULT_SCHEDULE, INITIAL_ACHIEVEMENTS, buildInitialAchievements } from '../data/initialData';
 import { TP_DATA } from '../data/tpData';
+import { syncAppState, fetchAppState } from '../lib/supabase';
 
 const readStoredValue = (key, fallback) => {
   try {
@@ -135,23 +136,54 @@ export const AuthProvider = ({ children }) => {
 
   useEffect(() => {
     localStorage.setItem('eduprogress_students', JSON.stringify(students));
+    syncAppState('students', students);
   }, [students]);
 
   useEffect(() => {
     localStorage.setItem('eduprogress_tp_data', JSON.stringify(tpData));
+    syncAppState('tp_data', tpData);
   }, [tpData]);
 
   useEffect(() => {
     localStorage.setItem('eduprogress_schedule_data', JSON.stringify(scheduleData));
+    syncAppState('schedule_data', scheduleData);
   }, [scheduleData]);
 
   useEffect(() => {
     localStorage.setItem('eduprogress_achievements', JSON.stringify(achievements));
+    syncAppState('achievements', achievements);
   }, [achievements]);
 
   useEffect(() => {
     localStorage.setItem('eduprogress_grades', JSON.stringify(grades));
+    syncAppState('grades', grades);
   }, [grades]);
+
+  // Initial Hydration from Supabase Cloud Database
+  useEffect(() => {
+    async function loadCloudState() {
+      try {
+        const [cloudGrades, cloudTp, cloudStudents, cloudAchievements, cloudSchedule] = await Promise.all([
+          fetchAppState('grades'),
+          fetchAppState('tp_data'),
+          fetchAppState('students'),
+          fetchAppState('achievements'),
+          fetchAppState('schedule_data')
+        ]);
+
+        if (cloudGrades) setGradesState(cloudGrades);
+        if (cloudTp) setTpData(cloudTp);
+        if (cloudStudents && Array.isArray(cloudStudents) && cloudStudents.length > 0) {
+          setStudents(cloudStudents.map(migrateStudentProfile));
+        }
+        if (cloudAchievements) setAchievementsState(migrateAchievements(cloudAchievements));
+        if (cloudSchedule) setScheduleData(migrateScheduleProfile(cloudSchedule));
+      } catch (e) {
+        console.warn('Initial cloud hydration note:', e);
+      }
+    }
+    loadCloudState();
+  }, []);
 
   useEffect(() => {
     setStudents((currentStudents) => syncStudentAchievementCounts(achievements, currentStudents));
