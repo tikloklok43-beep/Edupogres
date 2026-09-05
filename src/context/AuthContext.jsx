@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import axios from 'axios';
 import { DEMO_ACCOUNTS, INITIAL_STUDENTS, INITIAL_SUBJECTS, DEFAULT_SCHEDULE, INITIAL_ACHIEVEMENTS, buildInitialAchievements } from '../data/initialData';
 import { TP_DATA } from '../data/tpData';
-import { syncAppState, fetchAppState } from '../lib/supabase';
+import { syncAppState, fetchAppState, syncStudentsTable, syncGradesTable, syncAchievementsTable } from '../lib/supabase';
 
 const readStoredValue = (key, fallback) => {
   try {
@@ -137,6 +137,7 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     localStorage.setItem('eduprogress_students', JSON.stringify(students));
     syncAppState('students', students);
+    syncStudentsTable(students);
   }, [students]);
 
   useEffect(() => {
@@ -152,11 +153,13 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     localStorage.setItem('eduprogress_achievements', JSON.stringify(achievements));
     syncAppState('achievements', achievements);
+    syncAchievementsTable(achievements);
   }, [achievements]);
 
   useEffect(() => {
     localStorage.setItem('eduprogress_grades', JSON.stringify(grades));
     syncAppState('grades', grades);
+    syncGradesTable(grades);
   }, [grades]);
 
   // Initial Hydration from Supabase Cloud Database
@@ -178,12 +181,48 @@ export const AuthProvider = ({ children }) => {
         }
         if (cloudAchievements) setAchievementsState(migrateAchievements(cloudAchievements));
         if (cloudSchedule) setScheduleData(migrateScheduleProfile(cloudSchedule));
+
+        // Auto sync initial data to Supabase if not yet synced
+        if (!cloudStudents && INITIAL_STUDENTS) {
+          syncStudentsTable(INITIAL_STUDENTS);
+          syncAppState('students', INITIAL_STUDENTS);
+        }
+        if (!cloudGrades) {
+          const initG = createInitialGrades();
+          syncGradesTable(initG);
+          syncAppState('grades', initG);
+        }
+        if (!cloudTp) {
+          syncAppState('tp_data', TP_DATA);
+        }
+        if (!cloudSchedule) {
+          syncAppState('schedule_data', DEFAULT_SCHEDULE);
+        }
       } catch (e) {
         console.warn('Initial cloud hydration note:', e);
       }
     }
     loadCloudState();
   }, []);
+
+  const syncAllDataToCloud = async () => {
+    try {
+      await Promise.all([
+        syncAppState('students', students),
+        syncAppState('grades', grades),
+        syncAppState('tp_data', tpData),
+        syncAppState('schedule_data', scheduleData),
+        syncAppState('achievements', achievements),
+        syncStudentsTable(students),
+        syncGradesTable(grades),
+        syncAchievementsTable(achievements)
+      ]);
+      return true;
+    } catch (e) {
+      console.warn('Sync all error:', e);
+      return false;
+    }
+  };
 
   useEffect(() => {
     setStudents((currentStudents) => syncStudentAchievementCounts(achievements, currentStudents));
@@ -251,7 +290,8 @@ export const AuthProvider = ({ children }) => {
       setGrades,
       logout,
       demoAccounts: DEMO_ACCOUNTS,
-      resetAllData
+      resetAllData,
+      syncAllDataToCloud
     }}>
       {children}
     </AuthContext.Provider>

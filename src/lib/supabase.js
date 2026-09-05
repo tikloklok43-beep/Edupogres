@@ -46,6 +46,83 @@ export async function syncAppState(key, data) {
 }
 
 /**
+ * Menyinkronkan daftar siswa ke tabel `students` di Supabase.
+ */
+export async function syncStudentsTable(students) {
+  if (!supabase || !Array.isArray(students)) return;
+  try {
+    const rows = students.map((s) => ({
+      id: s.id,
+      name: s.name,
+      nisn: s.nisn || '',
+      class_name: s.className || '',
+      homeroom_teacher: s.homeroomTeacher || '',
+      avatar: s.avatar || '',
+      parent_name: s.parentName || '',
+      parent_phone: s.parentPhone || '',
+      parent_email: s.parentEmail || '',
+      average_score: s.averageScore || 0,
+      attendance_rate: s.attendanceRate || 100,
+      overall_progress: s.overallProgress || 0,
+      total_achievements: s.totalAchievements || 0,
+      updated_at: new Date().toISOString()
+    }));
+    await supabase.from('students').upsert(rows, { onConflict: 'id' });
+  } catch (e) {
+    console.warn('[Supabase students table sync]:', e);
+  }
+}
+
+/**
+ * Menyinkronkan nilai siswa ke tabel `student_grades` di Supabase.
+ */
+export async function syncGradesTable(grades) {
+  if (!supabase || !grades || typeof grades !== 'object') return;
+  try {
+    const rows = [];
+    Object.entries(grades).forEach(([studentId, subjectMap]) => {
+      if (typeof subjectMap === 'object') {
+        Object.entries(subjectMap).forEach(([subjectId, gradeData]) => {
+          rows.push({
+            student_id: studentId,
+            subject_id: subjectId,
+            grades_data: gradeData,
+            updated_at: new Date().toISOString()
+          });
+        });
+      }
+    });
+    if (rows.length > 0) {
+      await supabase.from('student_grades').upsert(rows, { onConflict: 'student_id,subject_id' });
+    }
+  } catch (e) {
+    console.warn('[Supabase student_grades table sync]:', e);
+  }
+}
+
+/**
+ * Menyinkronkan prestasi siswa ke tabel `achievements` di Supabase.
+ */
+export async function syncAchievementsTable(achievements) {
+  if (!supabase || !Array.isArray(achievements)) return;
+  try {
+    const rows = achievements.map((a) => ({
+      id: a.id || `ach-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+      student_id: a.studentId || 'std-1',
+      title: a.title,
+      category: a.category || 'Umum',
+      date: a.date || new Date().toISOString().split('T')[0],
+      icon: a.icon || 'award',
+      description: a.description || '',
+      created_at: new Date().toISOString()
+    }));
+    await supabase.from('achievements').upsert(rows, { onConflict: 'id' });
+  } catch (e) {
+    console.warn('[Supabase achievements table sync]:', e);
+  }
+}
+
+/**
  * Mengambil data state global dari Supabase.
  */
 export async function fetchAppState(key) {

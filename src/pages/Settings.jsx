@@ -3,16 +3,32 @@ import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { updatePassword, sendPasswordResetEmail } from '../lib/supabase';
 import GlassCard from '../components/GlassCard';
-import { Settings as SettingsIcon, Sun, Moon, Contrast, UserCheck, Lock } from 'lucide-react';
+import { Settings as SettingsIcon, Sun, Moon, Contrast, UserCheck, Lock, Cloud, RefreshCw } from 'lucide-react';
 
 export default function Settings() {
-  const { user, selectedStudent } = useAuth();
+  const { user, selectedStudent, syncAllDataToCloud, students } = useAuth();
   const { themeMode, toggleTheme } = useTheme();
   const [password, setPassword] = useState('');
   const [confirmation, setConfirmation] = useState('');
   const [passwordMessage, setPasswordMessage] = useState('');
   const [passwordError, setPasswordError] = useState('');
   const [savingPassword, setSavingPassword] = useState(false);
+
+  // Cloud sync state
+  const [syncingCloud, setSyncingCloud] = useState(false);
+  const [syncMessage, setSyncMessage] = useState('');
+
+  const handleManualSync = async () => {
+    setSyncingCloud(true);
+    setSyncMessage('');
+    const success = await syncAllDataToCloud();
+    if (success) {
+      setSyncMessage(`✅ Berhasil menyinkronkan data ${students?.length || 9} siswa, nilai, TP/CP, dan prestasi ke database Supabase!`);
+    } else {
+      setSyncMessage('⚠️ Gagal menyinkronkan. Pastikan tabel Supabase sudah dibuat di SQL Editor.');
+    }
+    setSyncingCloud(false);
+  };
 
   async function handlePasswordChange(event) {
     event.preventDefault();
@@ -62,9 +78,9 @@ export default function Settings() {
           <div className="inline-flex items-center gap-2 bg-white/20 backdrop-blur-md px-3 py-1 rounded-full text-xs font-black">
             <SettingsIcon className="w-3.5 h-3.5" /> Pengaturan Sistem & Profil
           </div>
-          <h1 className="text-2xl sm:text-3xl font-black tracking-tight">Pengaturan & Aksesibilitas</h1>
+          <h1 className="text-2xl sm:text-3xl font-black tracking-tight">Pengaturan & Database Cloud</h1>
           <p className="text-xs sm:text-sm text-slate-300">
-            Kelola profil pengguna, preferensi tema tampilan (Light/Dark/High Contrast), dan notifikasi.
+            Kelola profil pengguna, sinkronisasi Supabase Cloud, preferensi tema, dan keamanan akun.
           </p>
         </div>
       </div>
@@ -96,6 +112,32 @@ export default function Settings() {
               <span className="font-extrabold text-sky-600">{selectedStudent.name}</span>
             </div>
           </div>
+        </GlassCard>
+
+        {/* Cloud Sync Database Control */}
+        <GlassCard className="space-y-4">
+          <h3 className="text-base font-extrabold text-slate-800 dark:text-slate-100 flex items-center gap-2">
+            <Cloud className="w-5 h-5 text-sky-500" /> Sinkronisasi Database Supabase
+          </h3>
+          <p className="text-xs text-slate-500 dark:text-slate-400">
+            Kirim seluruh data siswa (9 anak), rekap nilai tugas/ulangan, TP/CP, dan prestasi langsung ke tabel cloud Supabase.
+          </p>
+
+          <button
+            type="button"
+            disabled={syncingCloud}
+            onClick={handleManualSync}
+            className="w-full py-3.5 bg-gradient-to-r from-emerald-500 to-teal-500 hover:brightness-105 text-white font-extrabold text-xs rounded-2xl shadow-lg flex items-center justify-center gap-2 transition disabled:opacity-50"
+          >
+            <RefreshCw className={`w-4 h-4 ${syncingCloud ? 'animate-spin' : ''}`} />
+            <span>{syncingCloud ? 'Menyinkronkan ke Supabase...' : 'Kirim / Sinkronkan Semua Data ke Supabase Sekarang'}</span>
+          </button>
+
+          {syncMessage && (
+            <div className="p-3 bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-300 dark:border-emerald-800 rounded-2xl text-xs font-bold text-emerald-700 dark:text-emerald-300">
+              {syncMessage}
+            </div>
+          )}
         </GlassCard>
 
         {/* Password management */}
